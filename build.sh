@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 OIFS=$IFS
 IFS=$'\n'
 
@@ -25,6 +26,7 @@ declare -A extras=(
 )
 
 if [[ "${APPVEYOR_REPO_TAG}" == "true" ]]; then
+	echo "=== Building: ${APPVEYOR_REPO_TAG_NAME}"
 	REMOTE_BRANCH=${APPVEYOR_REPO_TAG_NAME}
 else
 	REMOTE_BRANCH=master
@@ -32,6 +34,8 @@ fi
 
 mkdir ${APPVEYOR_BUILD_FOLDER}/artifacts ${HOME}/go/src/github.com/gravitational
 git clone -q --branch=${REMOTE_BRANCH} https://github.com/gravitational/teleport.git ${HOME}/go/src/github.com/gravitational/teleport
+cd ${HOME}/go/src/github.com/gravitational/teleport
+git checkout -qf ${REMOTE_BRANCH}
 
 for z in ${ENVIRONMENTS[@]}; do
 	echo "=== ${z}"
@@ -53,7 +57,7 @@ for z in ${ENVIRONMENTS[@]}; do
 		fi
 	fi
 
-	cd ${HOME}/go/src/github.com/gravitational/teleport
+#	cd ${HOME}/go/src/github.com/gravitational/teleport
 	make release
 
 	TARBALL=$(ls -1 teleport-*.tar.gz)
