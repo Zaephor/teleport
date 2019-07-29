@@ -1,7 +1,7 @@
 ---
 # appveyor.yml
 version: 0.0.{build}
-build: off
+skip_non_tags: true
 
 image:
 - Ubuntu1804
@@ -10,7 +10,6 @@ environment:
   GOPATH: /home/appveyor/go
 
 clone_folder: ${HOME}/go/src/github.com/${APPVEYOR_REPO_NAME}
-clone_depth: 1
 
 stack: go 1.10
 
