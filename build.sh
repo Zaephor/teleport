@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 OIFS=$IFS
 IFS=$'\n'
 
@@ -57,7 +56,6 @@ for z in ${ENVIRONMENTS[@]}; do
 		fi
 	fi
 
-#	cd ${HOME}/go/src/github.com/gravitational/teleport
 	make release
 
 	TARBALL=$(ls -1 teleport-*.tar.gz)

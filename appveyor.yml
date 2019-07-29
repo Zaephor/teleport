@@ -16,6 +16,7 @@ stack: go 1.10
 build_script:
 - sh: sudo apt-get update -y ; sudo apt-get install -y gcc-arm-linux-gnueabi
 - sh: ${HOME}/go/src/github.com/${APPVEYOR_REPO_NAME}/build.sh
+- sh: if [ $(ls -1 ${APPVEYOR_BUILD_FOLDER}/artifacts/ | wc -l) -gt 0 ]; then export ARTIFACTS_EXIST=true ; else export ARTIFACTS_EXIST=false ; fi
 
 artifacts:
 - path: 'artifacts/*'
@@ -31,3 +32,4 @@ deploy:
   on:
     branch: master
     APPVEYOR_REPO_TAG: true
+    ARTIFACTS_EXIST: true
