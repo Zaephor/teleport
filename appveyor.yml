@@ -13,23 +13,26 @@ clone_folder: ${HOME}/go/src/github.com/${APPVEYOR_REPO_NAME}
 
 stack: go 1.10
 
-build_script:
+install:
 - sh: sudo apt-get update -y ; sudo apt-get install -y gcc-arm-linux-gnueabi
+
+build_script:
 - sh: ${HOME}/go/src/github.com/${APPVEYOR_REPO_NAME}/build.sh
 - sh: if [ $(ls -1 ${APPVEYOR_BUILD_FOLDER}/artifacts/ | wc -l) -gt 0 ]; then export ARTIFACTS_EXIST=true ; else export ARTIFACTS_EXIST=false ; fi
 
 artifacts:
-- path: 'artifacts/*'
+- name: bundles
+  path: 'artifacts/*'
 
 deploy:
+- provider: GitHub
   description: '> TODO: Write a description'
-  provider: GitHub
   auth_token:
     secure: QG6n+fzetSxrI2uruHJyDO/YiBkvqOdFYdmYfSWG0d/QKYuIx2xrz9guxKrT7DYw
-  artifact: /*/
+  artifact: bundles
   draft: false
   prerelease: false
   on:
-    branch: master
+#    branch: master
     APPVEYOR_REPO_TAG: true
     ARTIFACTS_EXIST: true

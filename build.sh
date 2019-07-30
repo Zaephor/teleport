@@ -25,7 +25,7 @@ declare -A extras=(
 )
 
 if [[ "${APPVEYOR_REPO_TAG}" == "true" ]]; then
-	echo "=== Building: ${APPVEYOR_REPO_TAG_NAME}"
+	echo "======== Building: ${APPVEYOR_REPO_TAG_NAME}"
 	REMOTE_BRANCH=${APPVEYOR_REPO_TAG_NAME}
 else
 	REMOTE_BRANCH=master
@@ -37,7 +37,7 @@ cd ${HOME}/go/src/github.com/gravitational/teleport
 git checkout -qf ${REMOTE_BRANCH}
 
 for z in ${ENVIRONMENTS[@]}; do
-	echo "=== ${z}"
+	echo "======== ${z}"
 	export GOOS=$(echo ${z} | cut -d',' -f1)
 	ARCH=$(echo ${z} | cut -d',' -f2)
 	if [[ -z "${extras[${ARCH}]}" ]]; then
@@ -72,5 +72,6 @@ for z in ${ENVIRONMENTS[@]}; do
 	fi
 done
 ls -la ${APPVEYOR_BUILD_FOLDER}/artifacts/
+cd ${APPVEYOR_BUILD_FOLDER}
 
 IFS=$OIFS
