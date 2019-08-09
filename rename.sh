@@ -1,8 +1,8 @@
 #!/bin/bash
 ALL_BASE="${GOPATH}/src/github.com/gravitational/teleport"
 
-TARBALL=$(ls -1 ${ALL_BASE}/teleport*.tar.gz | sed "s@^${ALL_BASE}/@@g")
-ZIPBALL=$(ls -1 ${ALL_BASE}/teleport*.zip | sed "s@^${ALL_BASE}/@@g")
+TARBALL=$(ls -1 ${ALL_BASE}/teleport*.tar.gz | sed "s@^${ALL_BASE}/@@g" 2>/dev/null)
+ZIPBALL=$(ls -1 ${ALL_BASE}/teleport*.zip | sed "s@^${ALL_BASE}/@@g" 2>/dev/null)
 
 if [[ ! -d "${TRAVIS_BUILD_DIR}/artifacts" ]]; then
 	mkdir "${TRAVIS_BUILD_DIR}/artifacts"

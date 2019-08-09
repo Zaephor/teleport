@@ -1,0 +1,10 @@
+#!/usr/bin/with-contenv bash
+exec /usr/sbin/teleport start --config=/config/teleport.yaml
+
+UMASK_SET=${UMASK_SET:-022}
+
+umask "$UMASK_SET"
+
+exec \
+	s6-setuidgid abc /usr/sbin/teleport \
+	--config=/config/teleport.yaml

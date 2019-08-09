@@ -7,18 +7,29 @@ _build: &_build
     "on":
       tags: true
     file_glob: true
-    file: "artifacts/*"
+    file: artifacts/*
+  - provider: script
+    skip_cleanup: true
+    "on":
+      tags: true
+      condition: ${DOCKER_BUILT} = true
+    script: ${TRAVIS_BUILD_DIR}/deploy_docker.sh
+  script:
+  - cd ${GOPATH}/src/github.com/gravitational/teleport && make release && bash ${TRAVIS_BUILD_DIR}/rename.sh
+  - if [[ ${BUILD_GOOS} == "linux" && -e ${TRAVIS_BUILD_DIR}/Dockerfile.${ARCH_LABEL} ]]; then cd ${TRAVIS_BUILD_DIR} && mkdir temp/ && tar -xvf artifacts/teleport-*.tar.gz -C ./temp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh ; fi
+  - if [[ ${BUILD_GOOS} == "linux" && -e ${TRAVIS_BUILD_DIR}/Dockerfile.${ARCH_LABEL} ]]; then cd ${TRAVIS_BUILD_DIR} && docker build --pull --no-cache -t ${DOCKER_TAG}:${ARCH_LABEL}-${REMOTE_BRANCH} -f Dockerfile.${ARCH_LABEL} . && export DOCKER_BUILT=true ; fi
   before_script:
-  - export REMOTE_BRANCH=${TRAVIS_TAG:-master}
+  - export ALT_BRANCH=$(tail -n1 ${TRAVIS_BUILD_DIR}/VERSIONS)
+  - export REMOTE_BRANCH=${TRAVIS_TAG:-${ALT_BRANCH}}
   - export GOOS=${BUILD_GOOS}
   - export GOARCH=${BUILD_GOARCH}
   - if [[ -n "${BUILD_GOARM}" ]]; then export GOARM=${BUILD_GOARM} ; fi
   - if [[ -n "${BUILD_CC}" ]]; then export CC=${BUILD_CC} ; fi
-  - echo "GOOS ${GOOS}, GOARCH ${GOARCH}, ARCH_LABEL ${ARCH_LABEL}, REMOTE_BRANCH ${REMOTE_BRANCH}, CC ${CC}"
+  - echo "GOOS ${GOOS}, GOARCH ${GOARCH}, ARCH_LABEL ${ARCH_LABEL}, REMOTE_BRANCH ${REMOTE_BRANCH}, CC ${CC}, ALT_BRANCH ${ALT_BRANCH}"
   - git clone -q --branch=${REMOTE_BRANCH} https://github.com/gravitational/teleport.git ${GOPATH}/src/github.com/gravitational/teleport && cd ${GOPATH}/src/github.com/gravitational/teleport && git checkout -qf ${REMOTE_BRANCH} 
   after_success:
-  - bash ${TRAVIS_BUILD_DIR}/rename.sh
   - find ${TRAVIS_BUILD_DIR}/artifacts
+  - cd ${TRAVIS_BUILD_DIR}
 
 _arm_pkgs: &_arm_pkgs
   addons:
@@ -58,7 +69,6 @@ jobs:
     - BUILD_GOOS=linux
     - BUILD_GOARCH=386
     - ARCH_LABEL=i386
-    script: cd ${GOPATH}/src/github.com/gravitational/teleport && make release
     <<: *_build
     <<: *_386_pkgs
   - name: linux amd64
@@ -66,7 +76,6 @@ jobs:
     - BUILD_GOOS=linux
     - BUILD_GOARCH=amd64
     - ARCH_LABEL=amd64
-    script: cd ${GOPATH}/src/github.com/gravitational/teleport && make release
     <<: *_build
   - name: linux armel
     env:
@@ -75,7 +84,6 @@ jobs:
     - BUILD_GOARM=5
     - BUILD_CC=arm-linux-gnueabi-gcc
     - ARCH_LABEL=armel
-    script: cd ${GOPATH}/src/github.com/gravitational/teleport && make release
     <<: *_build
     <<: *_arm_pkgs
   - name: linux armhf
@@ -85,7 +93,6 @@ jobs:
     - BUILD_GOARM=6
     - BUILD_CC=arm-linux-gnueabi-gcc
     - ARCH_LABEL=armhf
-    script: cd ${GOPATH}/src/github.com/gravitational/teleport && make release
     <<: *_build
     <<: *_arm_pkgs
   - name: windows i386
@@ -93,14 +100,12 @@ jobs:
     - BUILD_GOOS=windows
     - BUILD_GOARCH=386
     - ARCH_LABEL=i386
-    script: cd ${GOPATH}/src/github.com/gravitational/teleport && make release
     <<: *_build
   - name: windows amd64
     env:
     - BUILD_GOOS=windows
     - BUILD_GOARCH=amd64
     - ARCH_LABEL=amd64
-    script: cd ${GOPATH}/src/github.com/gravitational/teleport && make release
     <<: *_build
 #  - name: linux arm64
 #    env:
@@ -108,6 +113,5 @@ jobs:
 #    - BUILD_GOARCH=arm64
 #    - BUILD_CC=arm-linux-gnueabi-gcc
 #    - ARCH_LABEL=arm64
-#    script: cd ${GOPATH}/src/github.com/gravitational/teleport && make release
 #    <<: *_build
 #    <<: *_arm_pkgs

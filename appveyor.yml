@@ -28,7 +28,7 @@ deploy:
 - provider: GitHub
   description: '> TODO: Write a description'
   auth_token:
-    secure: QG6n+fzetSxrI2uruHJyDO/YiBkvqOdFYdmYfSWG0d/QKYuIx2xrz9guxKrT7DYw
+    secure: 1tlnU7RYF++5zkxH0wBjFpc5eSCoRh6WCbPvaeR7HSK694dDUWjUY+x1l2+s0Jdv
   artifact: bundles
   draft: false
   prerelease: false
@@ -36,3 +36,4 @@ deploy:
 #    branch: master
     APPVEYOR_REPO_TAG: true
     ARTIFACTS_EXIST: true
+    OTHER: true
