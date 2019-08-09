@@ -1,4 +1,4 @@
-FROM lsiobase/alpine.armhf:3.9
+FROM lsiobase/ubuntu.armhf:bionic
 EXPOSE 3022 3023 3024 3025 3026 3080
 COPY temp/* /usr/sbin/
 COPY s6/ /

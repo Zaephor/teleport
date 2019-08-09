@@ -1,10 +1,9 @@
 #!/usr/bin/with-contenv bash
 if [[ ! -e /config/teleport.yaml ]]; then
-	/usr/sbin/teleport configure | sed 's@/var/lib/teleport@/config/teleport@g' > /config/teleport.yaml
+	/usr/sbin/teleport configure | sed -e 's@/var/lib/teleport@/config/teleport@g' -e 's@.*pem@#&@g' > /config/teleport.yaml
 fi
 if [[ ! -d /config/teleport ]]; then
 	mkdir /config/teleport
 fi
 # permissions
-chown -R abc:abc \
-	/config
+chown -R abc:abc /config
