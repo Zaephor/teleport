@@ -83,24 +83,24 @@ stages:
 jobs:
   include:
 # Windows x86
-  - name: windows i386
-    env:
-    - BUILD_GOOS=windows
-    - BUILD_GOARCH=386
-    - BUILD_CC=i686-w64-mingw32-gcc
+#  - name: windows i386
+#    env:
+#    - BUILD_GOOS=windows
+#    - BUILD_GOARCH=386
+#    - BUILD_CC=i686-w64-mingw32-gcc
 #    - BUILD_CXX=i686-w64-mingw32-g++
-    - ARCH_LABEL=i386
-    <<: *_build
-    <<: *_windows_pkgs
-  - name: windows amd64
-    env:
-    - BUILD_GOOS=windows
-    - BUILD_GOARCH=amd64
-    - BUILD_CC=x86_64-w64-mingw32-gcc
+#    - ARCH_LABEL=i386
+#    <<: *_build
+#    <<: *_windows_pkgs
+#  - name: windows amd64
+#    env:
+#    - BUILD_GOOS=windows
+#    - BUILD_GOARCH=amd64
+#    - BUILD_CC=x86_64-w64-mingw32-gcc
 #    - BUILD_CXX=x86_64-w64-mingw32-g++
-    - ARCH_LABEL=amd64
-    <<: *_build
-    <<: *_windows_pkgs
+#    - ARCH_LABEL=amd64
+#    <<: *_build
+#    <<: *_windows_pkgs
 # Linux x86
   - name: linux i386
     env:
