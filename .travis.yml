@@ -20,11 +20,6 @@ _build: &_build
       tags: false
       condition: ( ${DOCKER_BUILT} == true ) && ( ${ARCH_LABEL} == "amd64" )
     script: ${TRAVIS_BUILD_DIR}/deploy_docker-debug.sh
-  script:
-  - go env
-  - cd ${GOPATH}/src/github.com/gravitational/teleport && make release && bash ${TRAVIS_BUILD_DIR}/rename.sh
-  - if [[ ${BUILD_GOOS} == "linux" && -e ${TRAVIS_BUILD_DIR}/Dockerfile.${ARCH_LABEL} ]]; then cd ${TRAVIS_BUILD_DIR} && mkdir temp/ && tar -xvf artifacts/teleport-*.tar.gz -C ./temp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh ; fi
-  - if [[ ${BUILD_GOOS} == "linux" && -e ${TRAVIS_BUILD_DIR}/Dockerfile.${ARCH_LABEL} ]]; then cd ${TRAVIS_BUILD_DIR} && docker build --pull --no-cache -t ${DOCKER_TAG}:${ARCH_LABEL}-${REMOTE_BRANCH} -f Dockerfile.${ARCH_LABEL} . && export DOCKER_BUILT=true ; fi
   before_script:
   - export ALT_BRANCH=$(tail -n1 ${TRAVIS_BUILD_DIR}/VERSIONS)
   - export REMOTE_BRANCH=${TRAVIS_TAG:-${ALT_BRANCH}}
@@ -36,6 +31,13 @@ _build: &_build
   - if [[ -n "${BUILD_CC}${BUILD_CXX}" ]]; then export CGO_ENABLED=1 ; fi
   - echo "GOOS ${GOOS}, GOARCH ${GOARCH}, ARCH_LABEL ${ARCH_LABEL}, REMOTE_BRANCH ${REMOTE_BRANCH}, CC ${CC}, ALT_BRANCH ${ALT_BRANCH}"
   - git clone -q --branch=${REMOTE_BRANCH} https://github.com/gravitational/teleport.git ${GOPATH}/src/github.com/gravitational/teleport && cd ${GOPATH}/src/github.com/gravitational/teleport && git checkout -qf ${REMOTE_BRANCH} 
+  script:
+  - go env
+  - cd ${GOPATH}/src/github.com/gravitational/teleport && make release && bash ${TRAVIS_BUILD_DIR}/rename.sh
+  - if [[ ${BUILD_GOOS} == "linux" && -e ${TRAVIS_BUILD_DIR}/Dockerfile.${ARCH_LABEL} ]]; then cd ${TRAVIS_BUILD_DIR} && mkdir temp/ && tar -xvf artifacts/teleport-*.tar.gz -C ./temp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh ; fi
+  - if [[ ${BUILD_GOOS} == "linux" && -e ${TRAVIS_BUILD_DIR}/Dockerfile.${ARCH_LABEL} ]]; then cd ${TRAVIS_BUILD_DIR} && docker build --pull --no-cache -t ${DOCKER_TAG}:${ARCH_LABEL}-${REMOTE_BRANCH} -f Dockerfile.${ARCH_LABEL} . && export DOCKER_BUILT=true ; fi
+# TODO: Maybe archive the docker images on the github release as well?
+# TODO: See about building deb packages as well for Ubuntu and Raspbian
   after_success:
   - find ${TRAVIS_BUILD_DIR}/artifacts
   - cd ${TRAVIS_BUILD_DIR}
@@ -82,6 +84,7 @@ stages:
 
 jobs:
   include:
+# TODO: Debug dependencies for cross-compiling Windows in Travis... This works on my machine >.<
 # Windows x86
 #  - name: windows i386
 #    env:
@@ -134,6 +137,7 @@ jobs:
     - ARCH_LABEL=armhf
     <<: *_build
     <<: *_arm_pkgs
+# TODO: Debug dependencies for cross-compiling arm64
 #  - name: linux arm64
 #    env:
 #    - BUILD_GOOS=linux
