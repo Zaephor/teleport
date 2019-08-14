@@ -23,12 +23,12 @@ _build: &_build
   before_script:
   - export ALT_BRANCH=$(tail -n1 ${TRAVIS_BUILD_DIR}/VERSIONS)
   - export REMOTE_BRANCH=${TRAVIS_TAG:-${ALT_BRANCH}}
-  - export GOOS=${BUILD_GOOS}
-  - export GOARCH=${BUILD_GOARCH}
-  - if [[ -n "${BUILD_GOARM}" ]]; then export GOARM=${BUILD_GOARM} ; fi
   - if [[ -n "${BUILD_CC}" ]]; then export CC=${BUILD_CC} ; fi
   - if [[ -n "${BUILD_CXX}" ]]; then export CXX=${BUILD_CXX} ; fi
-  - if [[ -n "${BUILD_CC}${BUILD_CXX}" ]]; then export CGO_ENABLED=1 ; fi
+  - if [[ -n "${BUILD_GOARM}" ]]; then export GOARM=${BUILD_GOARM} ; fi
+  - if [[ -n "${BUILD_CC}${BUILD_CXX}" || "${GOARCH}" != "${BUILD_GOARCH}" ]]; then export CGO_ENABLED=1 ; fi
+  - export GOOS=${BUILD_GOOS}
+  - export GOARCH=${BUILD_GOARCH}
   - echo "GOOS ${GOOS}, GOARCH ${GOARCH}, ARCH_LABEL ${ARCH_LABEL}, REMOTE_BRANCH ${REMOTE_BRANCH}, CC ${CC}, ALT_BRANCH ${ALT_BRANCH}"
   - git clone -q --branch=${REMOTE_BRANCH} https://github.com/gravitational/teleport.git ${GOPATH}/src/github.com/gravitational/teleport && cd ${GOPATH}/src/github.com/gravitational/teleport && git checkout -qf ${REMOTE_BRANCH} 
   script:
