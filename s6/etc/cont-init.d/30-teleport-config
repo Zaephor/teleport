@@ -5,5 +5,6 @@ fi
 if [[ ! -d /config/teleport ]]; then
 	mkdir /config/teleport
 fi
+
 # permissions
-chown -R abc:abc /config
+chown root:root /config/teleport.yaml /config/teleport
