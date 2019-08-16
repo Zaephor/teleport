@@ -62,6 +62,9 @@ _arm64_pkgs: &_arm64_pkgs
       packages:
       - gcc-multilib
       - gcc-aarch64-linux-gnu
+      - gcc-4.8-aarch64-linux-gnu
+      - libc6-arm64-cross
+      - libc6-dev-arm64-cross
 
 _386_pkgs: &_386_pkgs
   addons:
@@ -131,6 +134,15 @@ jobs:
     - ARCH_LABEL=armhf
     <<: *_build
     <<: *_arm_pkgs
+# TODO: Debug dependencies for cross-compiling arm64
+  - name: linux arm64
+    env:
+    - BUILD_GOOS=linux
+    - BUILD_GOARCH=arm64
+    - BUILD_CC=aarch64-linux-gnu-gcc
+    - ARCH_LABEL=arm64
+    <<: *_build
+    <<: *_arm64_pkgs
 # Linux x86
   - name: linux i386
     env:
@@ -145,12 +157,3 @@ jobs:
     - BUILD_GOARCH=amd64
     - ARCH_LABEL=amd64
     <<: *_build
-# TODO: Debug dependencies for cross-compiling arm64
-  - name: linux arm64
-    env:
-    - BUILD_GOOS=linux
-    - BUILD_GOARCH=arm64
-    - BUILD_CC=aarch64-linux-gnu-gcc
-    - ARCH_LABEL=arm64
-    <<: *_build
-    <<: *_arm64_pkgs
