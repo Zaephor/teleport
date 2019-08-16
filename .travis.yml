@@ -115,6 +115,13 @@ jobs:
 #    - ARCH_LABEL=amd64
 #    <<: *_build
 #    <<: *_windows_pkgs
+# Darwin amd64
+  - name: darwin amd64
+    env:
+    - BUILD_GOOS=darwin
+    - BUILD_GOARCH=amd64
+    - ARCH_LABEL=amd64
+    <<: *_build
 # Linux ARM
   - name: linux armel
     env:
@@ -134,7 +141,6 @@ jobs:
     - ARCH_LABEL=armhf
     <<: *_build
     <<: *_arm_pkgs
-# TODO: Debug dependencies for cross-compiling arm64
   - name: linux arm64
     env:
     - BUILD_GOOS=linux
