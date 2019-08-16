@@ -55,6 +55,14 @@ _arm_pkgs: &_arm_pkgs
       - libc6-armhf-armel-cross
       - libc6-dev-armhf-armel-cross
 
+_arm64_pkgs: &_arm64_pkgs
+  addons:
+    apt:
+      update: true
+      packages:
+      - gcc-multilib
+      - gcc-aarch64-linux-gnu
+
 _386_pkgs: &_386_pkgs
   addons:
     apt:
@@ -138,11 +146,11 @@ jobs:
     - ARCH_LABEL=amd64
     <<: *_build
 # TODO: Debug dependencies for cross-compiling arm64
-#  - name: linux arm64
-#    env:
-#    - BUILD_GOOS=linux
-#    - BUILD_GOARCH=arm64
-#    - BUILD_CC=arm-linux-gnueabi-gcc
-#    - ARCH_LABEL=arm64
-#    <<: *_build
-#    <<: *_arm_pkgs
+  - name: linux arm64
+    env:
+    - BUILD_GOOS=linux
+    - BUILD_GOARCH=arm64
+    - BUILD_CC=aarch64-linux-gnu-gcc
+    - ARCH_LABEL=arm64
+    <<: *_build
+    <<: *_arm64_pkgs
