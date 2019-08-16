@@ -116,12 +116,12 @@ jobs:
 #    <<: *_build
 #    <<: *_windows_pkgs
 # Darwin amd64
-  - name: darwin amd64
-    env:
-    - BUILD_GOOS=darwin
-    - BUILD_GOARCH=amd64
-    - ARCH_LABEL=amd64
-    <<: *_build
+#  - name: darwin amd64
+#    env:
+#    - BUILD_GOOS=darwin
+#    - BUILD_GOARCH=amd64
+#    - ARCH_LABEL=amd64
+#    <<: *_build
 # Linux ARM
   - name: linux armel
     env:
