@@ -60,7 +60,7 @@ _arm64_pkgs: &_arm64_pkgs
     apt:
       update: true
       packages:
-      - gcc-multilib
+#      - gcc-multilib
       - gcc-aarch64-linux-gnu
       - gcc-4.8-aarch64-linux-gnu
       - libc6-arm64-cross
