@@ -36,6 +36,7 @@ _build: &_build
   - cd ${GOPATH}/src/github.com/gravitational/teleport && make release && bash ${TRAVIS_BUILD_DIR}/rename.sh
   - if [[ ${BUILD_GOOS} == "linux" && -e ${TRAVIS_BUILD_DIR}/Dockerfile.${ARCH_LABEL} ]]; then cd ${TRAVIS_BUILD_DIR} && mkdir temp/ && tar -xvf artifacts/teleport-*.tar.gz -C ./temp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh ; fi
   - if [[ ${BUILD_GOOS} == "linux" && -e ${TRAVIS_BUILD_DIR}/Dockerfile.${ARCH_LABEL} ]]; then cd ${TRAVIS_BUILD_DIR} && docker build --pull --no-cache -t ${DOCKER_TAG}:${ARCH_LABEL}-${REMOTE_BRANCH} -f Dockerfile.${ARCH_LABEL} . && export DOCKER_BUILT=true ; fi
+#  - if [[ -n "${TRAVIS_TAG}" && "${DOCKER_BUILT}" == "true" ]]; then docker save --output "${TRAVIS_BUILD_DIR}/artifacts/teleport-${REMOTE_BRANCH}-${BUILD_GOOS}-${ARCH_LABEL}.docker.tar" ${DOCKER_TAG}:${ARCH_LABEL}-${REMOTE_BRANCH} ; fi
 # TODO: Maybe archive the docker images on the github release as well?
 # TODO: See about building deb packages as well for Ubuntu and Raspbian
   after_success:
