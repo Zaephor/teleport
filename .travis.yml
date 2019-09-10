@@ -23,15 +23,16 @@ env:
   global:
   - DOCKER_CLI_EXPERIMENTAL=enabled
 
+script:
+- ./build-script.sh ${TRAVIS_BUILD_STAGE_NAME}
+
 matrix:
   include:
   - stage: build-binary
-    script: ./build-binary.sh
     env: ARCH_LABEL=i386 BUILD_GOOS=linux
   - env: ARCH_LABEL=amd64 BUILD_GOOS=linux
   - env: ARCH_LABEL=armel BUILD_GOOS=linux
   - env: ARCH_LABEL=armhf BUILD_GOOS=linux
   - env: ARCH_LABEL=arm64 BUILD_GOOS=linux
   - stage: build-docker
-  - env: BUILD_TEST=hi
-    script: ./build-docker.sh
+    env: BUILD_TEST=hi
