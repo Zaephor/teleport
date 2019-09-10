@@ -11,6 +11,9 @@ services:
 addons:
   apt:
     update: true
+    sources:
+    - sourceline: "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
+      key_url: https://download.docker.com/linux/ubuntu/gpg
     packages:
     - docker-ce
     - qemu-user-static
