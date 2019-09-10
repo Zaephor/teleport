@@ -16,6 +16,8 @@ addons:
       key_url: https://download.docker.com/linux/ubuntu/gpg
     packages:
     - docker-ce
+    - docker-ce-cli
+    - containerd.io
     - qemu-user-static
 
 stages:
@@ -25,6 +27,9 @@ stages:
 env:
   global:
   - DOCKER_CLI_EXPERIMENTAL=enabled
+
+before_install:
+- echo '{"experimental":true}' | sudo tee /etc/docker/daemon.json
 
 script:
 - ./build-script.sh ${TRAVIS_BUILD_STAGE_NAME}
