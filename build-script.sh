@@ -7,14 +7,33 @@ echo "BUILD_GOOS: ${BUILD_GOOS}"
 
 docker version
 
-STAGE=$(echo "${1#*-}" | tr '[A-Z]' '[a-z]')
-case ${STAGE} in
-	"binary")
-		echo ${STAGE}
-		
+case ${BUILD_TYPE} in
+	"tar")
+		echo "== ${BUILD_TYPE}"
+		docker run --rm --privileged multiarch/qemu-user-static:register
+		docker run --privileged linuxkit/binfmt:v0.6
+
+		ALT_BRANCH=$(tail -n1 ${TRAVIS_BUILD_DIR}/VERSIONS) # Detect last version in VERSIONS file
+		REMOTE_BRANCH=${TRAVIS_TAG:-${ALT_BRANCH}} # Detect used tag, default to ALT_BRANCH if undefined
+
+		git clone -q --depth=1 --branch=${REMOTE_BRANCH} https://github.com/gravitational/teleport.git teleport
+		TPWD=$(pwd)
+		cd teleport
+		git checkout -qf ${REMOTE_BRANCH}
+		cd ${TPWD}
+
+		BUILD_ARGS=("-e" "GOOS=${BUILD_GOOS}" "-e" "GOARCH=${BUILD_GOARCH}")
+		if [[ -n "${BUILD_GOARM}" ]]; then
+			BUILD_ARGS+=("-e" "GOARM=${BUILD_GOARM}")
+		fi
+
+		docker run --rm -v "${PWD}/teleport":/go/src/github.com/gravitational/teleport -w /go/src/github.com/gravitational/teleport ${BUILD_ARGS[@]} golang:1.9.7-alpine3.8 bash -c "apk add --no-cache git make gcc musl-dev zip tar && cd /go/src/github.com/gravitational/teleport && go env && make release"
+
+		ls teleport
+
 		;;
 	"docker")
-		echo ${STAGE}
+		echo "== ${BUILD_TYPE}"
 #		docker login -u "${DOCKER_USER}" -p "${DOCKER_PASSWORD}" &> /dev/null
 
 		docker run --rm --privileged multiarch/qemu-user-static:register

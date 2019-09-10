@@ -20,9 +20,9 @@ addons:
     - containerd.io
     - qemu-user-static
 
-stages:
-- name: build-binary
-- name: build-docker
+#stages:
+#- name: build-binary
+#- name: build-docker
 
 env:
   global:
@@ -32,17 +32,16 @@ before_install:
 - echo '{"experimental":true}' | sudo tee /etc/docker/daemon.json
 
 script:
-- ./build-script.sh ${TRAVIS_BUILD_STAGE_NAME}
+- travis_wait 40 ./build-script.sh ${BUILD_TYPE}
 
 matrix:
   include:
-  - stage: build-binary
-    env: ARCH_LABEL=amd64 BUILD_GOOS=linux
-#  - env: ARCH_LABEL=i386 BUILD_GOOS=linux
-#  - env: ARCH_LABEL=amd64 BUILD_GOOS=darwin
-#  - env: ARCH_LABEL=amd64 BUILD_GOOS=windows
-#  - env: ARCH_LABEL=armel BUILD_GOOS=linux
-#  - env: ARCH_LABEL=armhf BUILD_GOOS=linux
-#  - env: ARCH_LABEL=arm64 BUILD_GOOS=linux
-  - stage: build-docker
-    env: BUILD_TEST=hi
+  - env: BUILD_TYPE=docker
+  - env: BUILD_TYPE=tar ARCH_LABEL=i386 BUILD_GOOS=linux BUILD_GOARCH=386
+  - env: BUILD_TYPE=tar ARCH_LABEL=i386 BUILD_GOOS=windows BUILD_GOARCH=386
+  - env: BUILD_TYPE=tar ARCH_LABEL=amd64 BUILD_GOOS=linux BUILD_GOARCH=amd64
+  - env: BUILD_TYPE=tar ARCH_LABEL=amd64 BUILD_GOOS=darwin BUILD_GOARCH=amd64
+  - env: BUILD_TYPE=tar ARCH_LABEL=amd64 BUILD_GOOS=windows BUILD_GOARCH=amd64
+  - env: BUILD_TYPE=tar ARCH_LABEL=armel BUILD_GOOS=linux BUILD_GOARCH=arm BUILD_GOARM=5
+  - env: BUILD_TYPE=tar ARCH_LABEL=armhf BUILD_GOOS=linux BUILD_GOARCH=arm BUILD_GOARM=6
+  - env: BUILD_TYPE=tar ARCH_LABEL=arm64 BUILD_GOOS=linux BUILD_GOARCH=arm64
