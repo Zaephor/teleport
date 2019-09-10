@@ -5,6 +5,7 @@ RUN echo "=== ${REMOTE_BRANCH}" && \
       git make gcc musl-dev zip tar && \
     git clone -q --depth=1 --branch=${REMOTE_BRANCH} https://github.com/gravitational/teleport.git /go/src/github.com/gravitational/teleport && \
     cd /go/src/github.com/gravitational/teleport && git checkout -qf ${REMOTE_BRANCH} && \
+    go env && \
     make release && \
     mkdir temp/ && tar -xvf teleport-*.tar.gz -C ./temp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
 #    apk del git make
