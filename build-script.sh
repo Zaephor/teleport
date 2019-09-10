@@ -24,6 +24,7 @@ case ${STAGE} in
 		docker buildx use teleport
 		docker buildx ls
 
+		# Determine TAGS
 		DOCKER_TAGS=()
 		ALT_BRANCH=$(tail -n1 ${TRAVIS_BUILD_DIR}/VERSIONS) # Detect last version in VERSIONS file
 		REMOTE_BRANCH=${TRAVIS_TAG:-${ALT_BRANCH}} # Detect used tag
@@ -41,6 +42,26 @@ case ${STAGE} in
 			fi
 			SUBTAG=${SUBTAG%.**}
 		done
+
+		# Determine Platforms
+		FROM=$(awk '/^FROM/{print $NF}' "Dockerfile" | tail -n 1)
+		PLATFORMS=""
+		for PLAT in $(docker manifest inspect "${FROM}" | jq -c --raw-output '.manifests[].platform'); do
+			PLAT_OS=$(echo "${PLAT}" | jq -c --raw-output '.os')
+			PLAT_ARCH=$(echo "${PLAT}" | jq -c --raw-output '.architecture')
+			PLAT_VARIANT=$(echo "${PLAT}" | jq -c --raw-output '.variant')
+			echo "Detected remote: ${PLAT_OS} - ${PLAT_ARCH}"
+			if [[ -n "${PLATFORMS}" ]]; then
+				PLATFORMS+=","
+			fi
+			PLATFORMS+="${PLAT_OS}/${PLAT_ARCH}"
+			if [[ -n "${PLAT_VARIANT}" && "${PLAT_VARIANT}" != "null" ]]; then
+				PLATFORMS+="/${PLAT_VARIANT}"
+			fi
+		done
+		if [[ -z "${PLATFORMS}" ]]; then
+			PLATFORMS="linux/amd64"
+		fi
 
 		docker buildx build --platform "${PLATFORMS}" --build-arg REMOTE_BRANCH=${REMOTE_BRANCH} ${DOCKER_TAGS[@]} --push -f "Dockerfile" .
 
