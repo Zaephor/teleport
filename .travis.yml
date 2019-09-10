@@ -32,7 +32,7 @@ before_install:
 - echo '{"experimental":true}' | sudo tee /etc/docker/daemon.json
 
 script:
-- travis_wait 40 ./build-script.sh ${BUILD_TYPE}
+- ./build-script.sh ${BUILD_TYPE}
 
 matrix:
   include:

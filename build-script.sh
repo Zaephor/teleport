@@ -27,7 +27,7 @@ case ${BUILD_TYPE} in
 			BUILD_ARGS+=("-e" "GOARM=${BUILD_GOARM}")
 		fi
 
-		docker run --rm -v "${PWD}/teleport":/go/src/github.com/gravitational/teleport -w /go/src/github.com/gravitational/teleport ${BUILD_ARGS[@]} golang:1.9.7-alpine3.8 bash -c "apk add --no-cache git make gcc musl-dev zip tar && cd /go/src/github.com/gravitational/teleport && go env && make release"
+		docker run --rm -v "${PWD}/teleport":/go/src/github.com/gravitational/teleport -w /go/src/github.com/gravitational/teleport ${BUILD_ARGS[@]} golang:1.9.7-alpine3.8 sh -c "apk add --no-cache git make gcc musl-dev zip tar && cd /go/src/github.com/gravitational/teleport && go env && make release"
 
 		ls teleport
 
@@ -82,7 +82,11 @@ case ${BUILD_TYPE} in
 			PLATFORMS="linux/amd64"
 		fi
 
-		docker buildx build --platform "${PLATFORMS}" --build-arg REMOTE_BRANCH=${REMOTE_BRANCH} ${DOCKER_TAGS[@]} --push -f "Dockerfile" .
+		if [[ -n "$(which travis_wait)" ]]; then
+			travis_wait 40 docker buildx build --platform "${PLATFORMS}" --build-arg REMOTE_BRANCH=${REMOTE_BRANCH} ${DOCKER_TAGS[@]} --push -f "Dockerfile" .
+		else
+			docker buildx build --platform "${PLATFORMS}" --build-arg REMOTE_BRANCH=${REMOTE_BRANCH} ${DOCKER_TAGS[@]} --push -f "Dockerfile" .
+		fi
 
 		docker buildx imagetools inspect "${DOCKER_TAG}:${REMOTE_BRANCH}"
 		docker manifest inspect "${DOCKER_TAG}:${REMOTE_BRANCH}"
