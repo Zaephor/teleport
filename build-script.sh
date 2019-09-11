@@ -22,12 +22,12 @@ case ${BUILD_TYPE} in
 		git checkout -qf ${REMOTE_BRANCH}
 		cd ${TPWD}
 
-		BUILD_ARGS=("-e" "GOOS=${BUILD_GOOS}" "-e" "GOARCH=${BUILD_GOARCH}")
+		GO_ARGS=("-e" "GOOS=${BUILD_GOOS}" "-e" "GOARCH=${BUILD_GOARCH}")
 		if [[ -n "${BUILD_GOARM}" ]]; then
-			BUILD_ARGS+=("-e" "GOARM=${BUILD_GOARM}")
+			GO_ARGS+=("-e" "GOARM=${BUILD_GOARM}")
 		fi
 
-		docker run --rm -v "${PWD}/teleport":/go/src/github.com/gravitational/teleport -w /go/src/github.com/gravitational/teleport ${BUILD_ARGS[@]} golang:1.9.7-alpine3.8 sh -c "apk add --no-cache git make gcc musl-dev zip tar && cd /go/src/github.com/gravitational/teleport && go env && make release"
+		docker run --rm -v "${PWD}/teleport":/go/src/github.com/gravitational/teleport -w /go/src/github.com/gravitational/teleport ${GO_ARGS[@]} golang:1.9.7-alpine3.8 sh -c "uname -a && apk add --no-cache git make gcc musl-dev zip tar && cd /go/src/github.com/gravitational/teleport && go env && make release"
 
 		ls teleport
 
@@ -83,6 +83,7 @@ case ${BUILD_TYPE} in
 		fi
 
 		if [[ -n "$(which travis_wait)" ]]; then
+			echo "== Trying travis_wait"
 			travis_wait 40 docker buildx build --platform "${PLATFORMS}" --build-arg REMOTE_BRANCH=${REMOTE_BRANCH} ${DOCKER_TAGS[@]} --push -f "Dockerfile" .
 		else
 			docker buildx build --platform "${PLATFORMS}" --build-arg REMOTE_BRANCH=${REMOTE_BRANCH} ${DOCKER_TAGS[@]} --push -f "Dockerfile" .
