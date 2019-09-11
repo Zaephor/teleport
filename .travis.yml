@@ -1,28 +1,92 @@
 ### Templates
+_build_tar: &_build_tar
+  script: ${TRAVIS_BUILD_DIR}/build-script.sh tar
+_deploy_tar: &_deploy_tar
+  deploy:
+  - provider: releases
+    api_key: "$GITHUB_OAUTH_TOKEN"
+    skip_cleanup: true
+    "on":
+      tags: true
+    file_glob: true
+    file: teleport*.tar.gz
+
+_build_docker: &_build_docker
+  script: ${TRAVIS_BUILD_DIR}/build-script.sh docker
+
+_deps_386: &_deps_386
+  addons:
+    apt:
+      update: true
+      packages:
+      - gcc-multilib
+      - libc6-dev-i386
+
+_deps_arm: &_deps_arm
+  addons:
+    apt:
+      update: true
+      packages:
+#      - gcc-multilib
+      - gcc-arm-linux-gnueabi
+      - gcc-7-arm-linux-gnueabi
+      - gcc-arm-linux-gnueabihf
+      - gcc-7-arm-linux-gnueabihf
+      - libc6-armel-cross
+      - libc6-dev-armel-cross
+      - libc6-armhf-armel-cross
+      - libc6-dev-armhf-armel-cross
+
+_deps_arm64: &_deps_arm64
+  addons:
+    apt:
+      update: true
+      packages:
+      - gcc-aarch64-linux-gnu
+      - gcc-7-aarch64-linux-gnu
+      - libc6-arm64-cross
+      - libc6-dev-arm64-cross
+
+_deps_win64: &_deps_win64
+  addons:
+    apt:
+      update: true
+      packages:
+      - mingw-w64
+      - mingw-w64-common
+      - mingw-w64-tools
+      - mingw-w64-i686-dev
+      - mingw-w64-x86-64-dev
+      - gcc-multilib
+      - gcc-mingw-w64
+      - gcc-mingw-w64-i686
+      - gcc-mingw-w64-x86-64
+
+_deps_docker: &_deps_docker
+  addons:
+    apt:
+      update: true
+      sources:
+      - sourceline: "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
+        key_url: https://download.docker.com/linux/ubuntu/gpg
+      packages:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
 
 ### Logic
 dist: bionic
 
-language: bash
+language: go
+go: "1.9.7"
 
 services:
 - docker
 
-addons:
-  apt:
-    update: true
-    sources:
-    - sourceline: "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
-      key_url: https://download.docker.com/linux/ubuntu/gpg
-    packages:
-    - docker-ce
-    - docker-ce-cli
-    - containerd.io
-    - qemu-user-static
 
-#stages:
-#- name: build-binary
-#- name: build-docker
+stages:
+- name: build-binary
+- name: build-docker
 
 env:
   global:
@@ -32,16 +96,34 @@ before_install:
 - echo '{"experimental":true}' | sudo tee /etc/docker/daemon.json
 
 script:
-- ./build-script.sh ${BUILD_TYPE}
+- ./build-script.sh
 
 matrix:
   include:
+  - env: ARCH_LABEL=i386 BUILD_GOOS=linux BUILD_GOARCH=386
+    <<: *_build_tar
+    <<: *_deps_386
+    stage: build-binary
+  - env: ARCH_LABEL=amd64 BUILD_GOOS=linux BUILD_GOARCH=amd64
+    <<: *_build_tar
+  - env: ARCH_LABEL=armel BUILD_GOOS=linux BUILD_GOARCH=arm BUILD_GOARM=5 BUILD_CC=arm-linux-gnueabi-gcc
+    <<: *_build_tar
+    <<: *_deps_arm
+  - env: ARCH_LABEL=armhf BUILD_GOOS=linux BUILD_GOARCH=arm BUILD_GOARM=6 BUILD_CC=arm-linux-gnueabi-gcc
+    <<: *_build_tar
+    <<: *_deps_arm
+  - env: ARCH_LABEL=arm64 BUILD_GOOS=linux BUILD_GOARCH=arm64 BUILD_CC=aarch64-linux-gnu-gcc
+    <<: *_build_tar
+    <<: *_deps_arm64
+  - env: ARCH_LABEL=amd64 BUILD_GOOS=darwin BUILD_GOARCH=amd64 BUILD_CGO_ENABLED=1
+    <<: *_build_tar
+  - env: ARCH_LABEL=i386 BUILD_GOOS=windows BUILD_GOARCH=386 BUILD_CGO_ENABLED=1 BUILD_CC=i686-w64-mingw32-gcc BUILD_CXX=i686-w64-mingw32-g++
+    <<: *_build_tar
+    <<: *_deps_win64
+  - env: ARCH_LABEL=amd64 BUILD_GOOS=windows BUILD_GOARCH=amd64 BUILD_CGO_ENABLED=1 BUILD_CC=x86_64-w64-mingw32-gcc BUILD_CXX=x86_64-w64-mingw32-g++
+    <<: *_build_tar
+    <<: *_deps_win64
   - env: BUILD_TYPE=docker
-  - env: BUILD_TYPE=tar ARCH_LABEL=i386 BUILD_GOOS=linux BUILD_GOARCH=386
-  - env: BUILD_TYPE=tar ARCH_LABEL=i386 BUILD_GOOS=windows BUILD_GOARCH=386
-  - env: BUILD_TYPE=tar ARCH_LABEL=amd64 BUILD_GOOS=linux BUILD_GOARCH=amd64
-  - env: BUILD_TYPE=tar ARCH_LABEL=amd64 BUILD_GOOS=darwin BUILD_GOARCH=amd64
-  - env: BUILD_TYPE=tar ARCH_LABEL=amd64 BUILD_GOOS=windows BUILD_GOARCH=amd64
-  - env: BUILD_TYPE=tar ARCH_LABEL=armel BUILD_GOOS=linux BUILD_GOARCH=arm BUILD_GOARM=5
-  - env: BUILD_TYPE=tar ARCH_LABEL=armhf BUILD_GOOS=linux BUILD_GOARCH=arm BUILD_GOARM=6
-  - env: BUILD_TYPE=tar ARCH_LABEL=arm64 BUILD_GOOS=linux BUILD_GOARCH=arm64
+    <<: *_build_docker
+    <<: *_deps_docker
+    stage: build-docker

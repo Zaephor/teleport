@@ -1,43 +1,41 @@
 #!/bin/bash
-set -e
+set -ex
+export BUILD_TYPE="${1}"
 echo "0: $0"
-echo "@: $@"
+echo "BUILD_TYPE: ${BUILD_TYPE}"
 echo "ARCH_LABEL: ${ARCH_LABEL}"
 echo "BUILD_GOOS: ${BUILD_GOOS}"
+QEMU=""
 
 docker version
+docker run --rm --privileged multiarch/qemu-user-static:register
+docker run --privileged linuxkit/binfmt:v0.7
 
+ALT_BRANCH=$(tail -n1 ${TRAVIS_BUILD_DIR}/VERSIONS) # Detect last version in VERSIONS file
+REMOTE_BRANCH=${TRAVIS_TAG:-${ALT_BRANCH}} # Detect used tag, default to ALT_BRANCH if undefined
+
+echo "== ${BUILD_TYPE}"
 case ${BUILD_TYPE} in
 	"tar")
-		echo "== ${BUILD_TYPE}"
-		docker run --rm --privileged multiarch/qemu-user-static:register
-		docker run --privileged linuxkit/binfmt:v0.6
-
-		ALT_BRANCH=$(tail -n1 ${TRAVIS_BUILD_DIR}/VERSIONS) # Detect last version in VERSIONS file
-		REMOTE_BRANCH=${TRAVIS_TAG:-${ALT_BRANCH}} # Detect used tag, default to ALT_BRANCH if undefined
-
-		git clone -q --depth=1 --branch=${REMOTE_BRANCH} https://github.com/gravitational/teleport.git teleport
+		git clone -q --depth=1 --branch=${REMOTE_BRANCH} https://github.com/gravitational/teleport.git ${GOPATH}/src/github.com/gravitational/teleport
 		TPWD=$(pwd)
-		cd teleport
+		cd ${GOPATH}/src/github.com/gravitational/teleport
 		git checkout -qf ${REMOTE_BRANCH}
+
+		for build_env in $(printenv | awk -F '=' '/^BUILD_/{print $1}' | sed 's@BUILD_@@g'); do
+			set_var="BUILD_${build_env}"
+			export ${build_env}=${!set_var}
+		done
+
+		go env
+		make release
+
+		mv teleport-${REMOTE_BRANCH}-* ${TPWD}
 		cd ${TPWD}
-
-		GO_ARGS=("-e" "GOOS=${BUILD_GOOS}" "-e" "GOARCH=${BUILD_GOARCH}")
-		if [[ -n "${BUILD_GOARM}" ]]; then
-			GO_ARGS+=("-e" "GOARM=${BUILD_GOARM}")
-		fi
-
-		docker run --rm -v "${PWD}/teleport":/go/src/github.com/gravitational/teleport -w /go/src/github.com/gravitational/teleport ${GO_ARGS[@]} golang:1.9.7-alpine3.8 sh -c "uname -a && apk add --no-cache git make gcc musl-dev zip tar && cd /go/src/github.com/gravitational/teleport && go env && make release"
-
-		ls teleport
-
+		ls
 		;;
 	"docker")
-		echo "== ${BUILD_TYPE}"
 #		docker login -u "${DOCKER_USER}" -p "${DOCKER_PASSWORD}" &> /dev/null
-
-		docker run --rm --privileged multiarch/qemu-user-static:register
-		docker run --privileged linuxkit/binfmt:v0.6
 
 		docker buildx create --name teleport
 		docker buildx use teleport
@@ -45,19 +43,20 @@ case ${BUILD_TYPE} in
 
 		# Determine TAGS
 		DOCKER_TAGS=()
-		ALT_BRANCH=$(tail -n1 ${TRAVIS_BUILD_DIR}/VERSIONS) # Detect last version in VERSIONS file
-		REMOTE_BRANCH=${TRAVIS_TAG:-${ALT_BRANCH}} # Detect used tag
 		if [[ -n "${ALT_BRANCH}" && -n "${TRAVIS_TAG}" && "${ALT_BRANCH}" == "${TRAVIS_TAG}" ]]; then
 			DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:latest" )
+		else
+			DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:debug" )
 		fi
-		DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:${REMOTE_BRANCH}" )
+		if [[ -n "${TRAVIS_TAG}" && "${TRAVIS_BRANCH}" == "${TRAVIS_TAG}" ]]; then
+			DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:${REMOTE_BRANCH}" )
+		fi
 
 		SUBTAG=${REMOTE_BRANCH}
 		while [[ -n "${SUBTAG//[^.]}" ]]; do
 			LATEST_MATCH=$(awk "/${SUBTAG%.**}/ {a=\$0} END{print a}" "${TRAVIS_BUILD_DIR}/VERSIONS")
 			if [[ "${LATEST_MATCH}" == "${TRAVIS_TAG}" ]]; then
 				DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:${SUBTAG%.**}" )
-				docker tag ${DOCKER_TAG}:${ARCH_LABEL}-${REMOTE_BRANCH} ${DOCKER_TAG}:${ARCH_LABEL}-${SUBTAG%.**}
 			fi
 			SUBTAG=${SUBTAG%.**}
 		done
@@ -82,15 +81,22 @@ case ${BUILD_TYPE} in
 			PLATFORMS="linux/amd64"
 		fi
 
-		if [[ -n "$(which travis_wait)" ]]; then
-			echo "== Trying travis_wait"
-			travis_wait 40 docker buildx build --platform "${PLATFORMS}" --build-arg REMOTE_BRANCH=${REMOTE_BRANCH} ${DOCKER_TAGS[@]} --push -f "Dockerfile" .
-		else
-			docker buildx build --platform "${PLATFORMS}" --build-arg REMOTE_BRANCH=${REMOTE_BRANCH} ${DOCKER_TAGS[@]} --push -f "Dockerfile" .
-		fi
+		DOCKER_ARGS=( "buildx" "build" "--platform" "${PLATFORMS}" "--build-arg" "RELEASE=${REMOTE_BRANCH}" )
+		DOCKER_ARGS+=( ${DOCKER_TAGS[@]} )
+		DOCKER_ARGS+=("--push")
+		DOCKER_ARGS+=( "-f" "Dockerfile" "." )
 
-		docker buildx imagetools inspect "${DOCKER_TAG}:${REMOTE_BRANCH}"
-		docker manifest inspect "${DOCKER_TAG}:${REMOTE_BRANCH}"
+#		if [[ -n "$(which travis_wait)" ]]; then
+#			echo "== Trying travis_wait"
+#			travis_wait 40 docker buildx build --platform "${PLATFORMS}" --build-arg RELEASE=${REMOTE_BRANCH} ${DOCKER_TAGS[@]} --push -f "Dockerfile" .
+#		else
+#			docker buildx build --platform "${PLATFORMS}" --build-arg RELEASE=${REMOTE_BRANCH} ${DOCKER_TAGS[@]} --push -f "Dockerfile" .
+#		fi
+		docker ${DOCKER_ARGS[@]}
 
+#		docker buildx imagetools inspect "${DOCKER_TAG}:${REMOTE_BRANCH}"
+#		docker manifest inspect "${DOCKER_TAG}:${REMOTE_BRANCH}"
+		docker buildx imagetools inspect "${DOCKER_TAGS[1]}"
+		docker manifest inspect "${DOCKER_TAGS[1]}"
 		;;
 esac
