@@ -113,18 +113,23 @@ matrix:
     <<: *_cron_tag
   - env: ARCH_LABEL=i386 BUILD_GOOS=linux BUILD_GOARCH=386
     <<: *_build_tar
+    <<: *_deploy_tar
     <<: *_deps_386
     stage: build-linux
   - env: ARCH_LABEL=amd64 BUILD_GOOS=linux BUILD_GOARCH=amd64
     <<: *_build_tar
+    <<: *_deploy_tar
   - env: ARCH_LABEL=armel BUILD_GOOS=linux BUILD_GOARCH=arm BUILD_GOARM=5 BUILD_CC=arm-linux-gnueabi-gcc
     <<: *_build_tar
+    <<: *_deploy_tar
     <<: *_deps_arm
   - env: ARCH_LABEL=armhf BUILD_GOOS=linux BUILD_GOARCH=arm BUILD_GOARM=6 BUILD_CC=arm-linux-gnueabi-gcc
     <<: *_build_tar
+    <<: *_deploy_tar
     <<: *_deps_arm
   - env: ARCH_LABEL=arm64 BUILD_GOOS=linux BUILD_GOARCH=arm64 BUILD_CC=aarch64-linux-gnu-gcc
     <<: *_build_tar
+    <<: *_deploy_tar
     <<: *_deps_arm64
   - env: BUILD_TYPE=docker
     <<: *_build_docker
@@ -132,10 +137,13 @@ matrix:
     stage: build-docker
 #  - env: ARCH_LABEL=amd64 BUILD_GOOS=darwin BUILD_GOARCH=amd64 BUILD_CGO_ENABLED=1
 #    <<: *_build_tar
+#    <<: *_deploy_tar
 #    stage: build-other
 #  - env: ARCH_LABEL=i386 BUILD_GOOS=windows BUILD_GOARCH=386 BUILD_CGO_ENABLED=1 BUILD_CC=i686-w64-mingw32-gcc BUILD_CXX=i686-w64-mingw32-g++
 #    <<: *_build_tar
+#    <<: *_deploy_tar
 #    <<: *_deps_win64
 #  - env: ARCH_LABEL=amd64 BUILD_GOOS=windows BUILD_GOARCH=amd64 BUILD_CGO_ENABLED=1 BUILD_CC=x86_64-w64-mingw32-gcc BUILD_CXX=x86_64-w64-mingw32-g++
 #    <<: *_build_tar
+#    <<: *_deploy_tar
 #    <<: *_deps_win64
