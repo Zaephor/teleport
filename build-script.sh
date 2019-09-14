@@ -35,12 +35,13 @@ case ${BUILD_TYPE} in
 		BUNDLE=$(ls -1 | grep 'teleport-.*\(zip\|tar.gz\)')
 		VERSION=${REMOTE_BRANCH:-$(echo "${BUNDLE}" | awk -F '-' '{print $2"-"$3}')}
 		NEW_NAME="teleport-${VERSION}-${BUILD_GOOS}-${ARCH_LABEL}"
+		mkdir artifacts
 		if [[ "${BUNDLE#*.}" == "zip" ]]; then
-			mv "${BUNDLE}" "${NEW_NAME}.zip"
+			mv "${BUNDLE}" "artifacts/${NEW_NAME}.zip"
 		else
-			mv "${BUNDLE}" "${NEW_NAME}.tar.gz"
+			mv "${BUNDLE}" "artifacts/${NEW_NAME}.tar.gz"
 		fi
-		ls
+		ls artifacts
 		;;
 	"docker")
 		echo "Logging in"
