@@ -32,7 +32,14 @@ case ${BUILD_TYPE} in
 
 		mv teleport-${REMOTE_BRANCH}-* ${TPWD}
 		cd ${TPWD}
-		ls
+		BUNDLE=$(ls -1 | grep 'teleport-.*\(zip\|tar.gz\)')
+		VERSION=${REMOTE_BRANCH:-$(echo "${BUNDLE}" | awk -F '-' '{print $2"-"$3}')}
+		NEW_NAME="teleport-${VERSION}-${BUILD_GOOS}-${ARCH_LABEL}"
+		if [[ "${BUNDLE#*.}" == "zip" ]]; then
+			mv "${BUNDLE}" "${NEW_NAME}.zip"
+		else
+			mv "${BUNDLE}" "${NEW_NAME}.tar.gz"
+		fi
 		;;
 	"docker")
 #		docker login -u "${DOCKER_USER}" -p "${DOCKER_PASSWORD}" &> /dev/null
