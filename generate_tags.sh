@@ -6,10 +6,10 @@ for z in $(git ls-remote --tags https://github.com/gravitational/teleport.git | 
 			echo ${z} >> VERSIONS
 			git add VERSIONS
 			git commit -m "TP: ${z}"
-			git tag ${z}
 			git push -u origin master
-			git push --tags
-			sleep 15m
+			git tag ${z} --force
+			git push --tags --force
+			sleep 30m
 		fi
 	fi
 done
