@@ -11,7 +11,7 @@ docker version
 docker run --rm --privileged multiarch/qemu-user-static:register
 docker run --privileged linuxkit/binfmt:v0.7
 
-ALT_BRANCH=$(tail -n1 ${TRAVIS_BUILD_DIR}/VERSIONS) # Detect last version in VERSIONS file
+ALT_BRANCH=$(sort -V ${TRAVIS_BUILD_DIR}/VERSIONS | tail -n1) # Detect last version in VERSIONS file
 REMOTE_BRANCH=${TRAVIS_TAG:-${ALT_BRANCH}} # Detect used tag, default to ALT_BRANCH if undefined
 
 echo "== ${BUILD_TYPE}"
@@ -40,10 +40,11 @@ case ${BUILD_TYPE} in
 		else
 			mv "${BUNDLE}" "${NEW_NAME}.tar.gz"
 		fi
+		ls
 		;;
 	"docker")
 		echo "Logging in"
-		docker login -u "${DOCKER_USER}" -p "${DOCKER_PASSWORD}" &> /dev/null
+		docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}" &> /dev/null
 
 		echo "Creating buildx project"
 		docker buildx create --name teleport
