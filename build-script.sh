@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -e
 export BUILD_TYPE="${1}"
 echo "0: $0"
 echo "BUILD_TYPE: ${BUILD_TYPE}"
@@ -42,7 +42,7 @@ case ${BUILD_TYPE} in
 		fi
 		;;
 	"docker")
-#		docker login -u "${DOCKER_USER}" -p "${DOCKER_PASSWORD}" &> /dev/null
+		docker login -u "${DOCKER_USER}" -p "${DOCKER_PASSWORD}" &> /dev/null
 
 		docker buildx create --name teleport
 		docker buildx use teleport
@@ -93,16 +93,8 @@ case ${BUILD_TYPE} in
 		DOCKER_ARGS+=("--push")
 		DOCKER_ARGS+=( "-f" "Dockerfile" "." )
 
-#		if [[ -n "$(which travis_wait)" ]]; then
-#			echo "== Trying travis_wait"
-#			travis_wait 40 docker buildx build --platform "${PLATFORMS}" --build-arg RELEASE=${REMOTE_BRANCH} ${DOCKER_TAGS[@]} --push -f "Dockerfile" .
-#		else
-#			docker buildx build --platform "${PLATFORMS}" --build-arg RELEASE=${REMOTE_BRANCH} ${DOCKER_TAGS[@]} --push -f "Dockerfile" .
-#		fi
 		docker ${DOCKER_ARGS[@]}
 
-#		docker buildx imagetools inspect "${DOCKER_TAG}:${REMOTE_BRANCH}"
-#		docker manifest inspect "${DOCKER_TAG}:${REMOTE_BRANCH}"
 		docker buildx imagetools inspect "${DOCKER_TAGS[1]}"
 		docker manifest inspect "${DOCKER_TAGS[1]}"
 		;;
