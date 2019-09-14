@@ -42,8 +42,10 @@ case ${BUILD_TYPE} in
 		fi
 		;;
 	"docker")
+		echo "Logging in"
 		docker login -u "${DOCKER_USER}" -p "${DOCKER_PASSWORD}" &> /dev/null
 
+		echo "Creating buildx project"
 		docker buildx create --name teleport
 		docker buildx use teleport
 		docker buildx ls
@@ -52,11 +54,14 @@ case ${BUILD_TYPE} in
 		DOCKER_TAGS=()
 		if [[ -n "${ALT_BRANCH}" && -n "${TRAVIS_TAG}" && "${ALT_BRANCH}" == "${TRAVIS_TAG}" ]]; then
 			DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:latest" )
+			echo "Queing tag ${DOCKER_TAG}:latest"
 		else
 			DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:debug" )
+			echo "Queing tag ${DOCKER_TAG}:debug"
 		fi
 		if [[ -n "${TRAVIS_TAG}" && "${TRAVIS_BRANCH}" == "${TRAVIS_TAG}" ]]; then
 			DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:${REMOTE_BRANCH}" )
+			echo "Queing tag ${DOCKER_TAG}:${REMOTE_BRANCH}"
 		fi
 
 		SUBTAG=${REMOTE_BRANCH}
@@ -64,6 +69,7 @@ case ${BUILD_TYPE} in
 			LATEST_MATCH=$(awk "/${SUBTAG%.**}/ {a=\$0} END{print a}" "${TRAVIS_BUILD_DIR}/VERSIONS")
 			if [[ "${LATEST_MATCH}" == "${TRAVIS_TAG}" ]]; then
 				DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:${SUBTAG%.**}" )
+			echo "Queing tag ${DOCKER_TAG}:${SUBTAG%.**}"
 			fi
 			SUBTAG=${SUBTAG%.**}
 		done
@@ -75,7 +81,7 @@ case ${BUILD_TYPE} in
 			PLAT_OS=$(echo "${PLAT}" | jq -c --raw-output '.os')
 			PLAT_ARCH=$(echo "${PLAT}" | jq -c --raw-output '.architecture')
 			PLAT_VARIANT=$(echo "${PLAT}" | jq -c --raw-output '.variant')
-			echo "Detected remote: ${PLAT_OS} - ${PLAT_ARCH}"
+			echo "Detected platform from base image: ${PLAT_OS} - ${PLAT_ARCH}"
 			if [[ -n "${PLATFORMS}" ]]; then
 				PLATFORMS+=","
 			fi

@@ -9,7 +9,7 @@ for z in $(git ls-remote --tags https://github.com/gravitational/teleport.git | 
 			git tag ${z}
 			git push -u origin master
 			git push --tags
-			sleep 10m
+			sleep 15m
 		fi
 	fi
 done

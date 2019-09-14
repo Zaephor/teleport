@@ -19,5 +19,5 @@ case "$(uname -m)" in
 		;;
 esac
 
-wget -q https://github.com/Zaephor/teleport/releases/download/${RELEASE}/teleport-${RELEASE}-$(uname -s | tr '[A-Z]' '[a-z]')-${DL_ARCH}.tar.gz -O /tmp/teleport.tar.gz
+wget https://github.com/Zaephor/teleport/releases/download/${RELEASE}/teleport-${RELEASE}-$(uname -s | tr '[A-Z]' '[a-z]')-${DL_ARCH}.tar.gz -O /tmp/teleport.tar.gz
 tar -xvf /tmp/teleport.tar.gz -C /usr/bin --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
