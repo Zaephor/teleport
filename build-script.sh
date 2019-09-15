@@ -3,20 +3,18 @@ set -e
 export BUILD_TYPE="${1}"
 echo "0: $0"
 echo "BUILD_TYPE: ${BUILD_TYPE}"
-echo "ARCH_LABEL: ${ARCH_LABEL}"
-echo "BUILD_GOOS: ${BUILD_GOOS}"
-QEMU=""
-
-docker version
-docker run --rm --privileged multiarch/qemu-user-static:register
-docker run --privileged linuxkit/binfmt:v0.7
 
 ALT_BRANCH=$(sort -V ${TRAVIS_BUILD_DIR}/VERSIONS | tail -n1) # Detect last version in VERSIONS file
 REMOTE_BRANCH=${TRAVIS_TAG:-${ALT_BRANCH}} # Detect used tag, default to ALT_BRANCH if undefined
+echo "ALT_BRANCH: ${ALT_BRANCH}"
+echo "REMOTE_BRANCH: ${REMOTE_BRANCH}"
+
 
 echo "== ${BUILD_TYPE}"
 case ${BUILD_TYPE} in
 	"tar")
+		echo "ARCH_LABEL: ${ARCH_LABEL}"
+		echo "BUILD_GOOS: ${BUILD_GOOS}"
 		git clone -q --depth=1 --branch=${REMOTE_BRANCH} https://github.com/gravitational/teleport.git ${GOPATH}/src/github.com/gravitational/teleport
 		TPWD=$(pwd)
 		cd ${GOPATH}/src/github.com/gravitational/teleport
@@ -44,6 +42,10 @@ case ${BUILD_TYPE} in
 		ls artifacts
 		;;
 	"docker")
+		docker version
+		docker run --rm --privileged multiarch/qemu-user-static:register
+		docker run --privileged linuxkit/binfmt:v0.7
+
 		echo "Logging in"
 		docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}" &> /dev/null
 
