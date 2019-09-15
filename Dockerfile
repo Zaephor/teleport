@@ -11,7 +11,7 @@
 #    make release && \
 #    mkdir temp/ && tar -xvf teleport-*.tar.gz -C ./temp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
 
-FROM lsiobase/alpine:3.10
+FROM lsiobase/ubuntu:bionic
 EXPOSE 3022 3023 3024 3025 3026 3080
 VOLUME /config
 #COPY temp/* /usr/sbin/
