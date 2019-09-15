@@ -24,6 +24,9 @@ case ${BUILD_TYPE} in
 			set_var="BUILD_${build_env}"
 			export ${build_env}=${!set_var}
 		done
+		if [[ -n "${BUILD_CC}${BUILD_CXX}" || "${GOHOSTARCH}" != "${BUILD_GOARCH}" ]]; then
+			export CGO_ENABLED=1
+		fi
 
 		go env
 		make release
