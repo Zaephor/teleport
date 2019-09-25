@@ -1,7 +1,8 @@
 ### Templates
 _cron_tag: &_cron_tag
   script:
-  - echo "TODO"
+  - echo "TESTING"
+  - bash ${TRAVIS_BUILD_DIR}/generate_tags.sh
 
 _build_tar: &_build_tar
   script: ${TRAVIS_BUILD_DIR}/build-script.sh tar
