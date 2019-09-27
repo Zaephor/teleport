@@ -1,14 +1,16 @@
 #!/bin/bash
 REMOTE="origin"
 BRANCH="master"
+cd ${TRAVIS_BUILD_DIR}
+git status
 if [[ "${CI}" == "true" && "${TRAVIS}" == "true" ]]; then
 	git config user.email "travis@travis-ci.org"
 	git config user.name "Travis CI"
 	git config push.default current
 	if [[ -n "${GITHUB_OAUTH_TOKEN}" ]]; then
-		git remote add https-origin $(git remote get-url origin | sed "s#git@github.com:#https://${GITHUB_OAUTH_TOKEN}@github.com/#g") &> /dev/null
+		git remote add https-origin "https://${GITHUB_OAUTH_TOKEN}:x-oauth-basic@github.com/${TRAVIS_REPO_SLUG}" &> /dev/null
 	else
-		git remote add https-origin $(git remote get-url origin | sed "s#git@github.com:#https://github.com/#g")
+		git remote add https-origin "https://github.com/${TRAVIS_REPO_SLUG}" &> /dev/null
 	fi
 	REMOTE="https-origin"
 fi
