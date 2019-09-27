@@ -111,4 +111,23 @@ case ${BUILD_TYPE} in
 		docker buildx imagetools inspect "${DOCKER_TAGS[1]}"
 		docker manifest inspect "${DOCKER_TAGS[1]}"
 		;;
+	"pkgs")
+		mkdir /tmp/tars
+		for download in $(curl -s https://api.github.com/repos/Zaephor/teleport/releases/tags/${REMOTE_BRANCH} | jq -c --raw-output '.assets[].browser_download_url'); do
+			wget ${download} -P /tmp/tars
+		done
+		for pkg in 'deb' 'rpm'; do
+			docker build -t "fpm:${pkg}" -f Dockerfile.${pkg}.fpm .
+			for TAR_FILE in $(ls -1 /tmp/tars | grep linux); do
+				TAR_ARCH=$(echo "${TAR_FILE}" | awk -F '[-.]' '{print $(NF-2)}')
+				mkdir /tmp/${TAR_ARCH}
+				tar -xvf /tmp/tars/${TAR_FILE} -C /tmp/${TAR_ARCH} --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
+				docker run --rm -it -v "/tmp/${TAR_ARCH}:/tmp/fpm" -w "/tmp/fpm" \
+					"fpm:${pkg}" -s dir -t ${pkg} -n 'teleport' -v ${REMOTE_BRANCH/v/} -C /tmp/fpm --architecture "${TAR_ARCH}" -p teleport_VERSION_ARCH.${pkg} --prefix /usr/sbin/
+#					"fpm:${pkg}" -s dir -t ${pkg} -n 'teleport' -v ${REMOTE_BRANCH/v/} -C /tmp/fpm --architecture "${TAR_ARCH}" -p teleport_VERSION_ARCH.${pkg} --prefix /usr/local/bin/
+			done
+		done
+		ls -la
+		ls -la /tmp /tmp/tars
+		;;
 esac

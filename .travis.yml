@@ -19,6 +19,9 @@ _deploy_tar: &_deploy_tar
 _build_docker: &_build_docker
   script: ${TRAVIS_BUILD_DIR}/build-script.sh docker
 
+_build_pkgs: &_build_pkgs
+  script: ${TRAVIS_BUILD_DIR}/build-script.sh pkgs
+
 _deps_386: &_deps_386
   addons:
     apt:
@@ -132,10 +135,13 @@ matrix:
     <<: *_build_tar
     <<: *_deploy_tar
     <<: *_deps_arm64
+  - env: BUILD_TYPE=pkgs
+    <<: *_build_pkgs
+    <<: *_deps_docker
+    stage: build-other
   - env: BUILD_TYPE=docker
     <<: *_build_docker
     <<: *_deps_docker
-    stage: build-docker
 #  - env: ARCH_LABEL=amd64 BUILD_GOOS=darwin BUILD_GOARCH=amd64 BUILD_CGO_ENABLED=1
 #    <<: *_build_tar
 #    <<: *_deploy_tar
