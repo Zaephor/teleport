@@ -1,7 +1,9 @@
 #!/bin/bash
 REMOTE="origin"
 BRANCH="master"
-cd ${TRAVIS_BUILD_DIR}
+if [[ -n "${TRAVIS_BUILD_DIR}" ]]; then
+	cd ${TRAVIS_BUILD_DIR}
+fi
 git status
 if [[ "${CI}" == "true" && "${TRAVIS}" == "true" ]]; then
 	git checkout master
