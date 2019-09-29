@@ -97,7 +97,7 @@ stages:
   if: type = cron
 - name: build-linux
   if: type != cron
-- name: build-docker
+- name: build-other
   if: type != cron
 #- name: build-other
 
