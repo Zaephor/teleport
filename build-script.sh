@@ -112,6 +112,7 @@ case ${BUILD_TYPE} in
 		docker manifest inspect "${DOCKER_TAGS[1]}"
 		;;
 	"pkgs")
+		mkdir ${TRAVIS_BUILD_DIR}/artifacts
 		mkdir /tmp/tars
 		for download in $(curl -s https://api.github.com/repos/Zaephor/teleport/releases/tags/${REMOTE_BRANCH} | jq -c --raw-output '.assets[].browser_download_url'); do
 			wget --quiet ${download} -P /tmp/tars
@@ -123,11 +124,35 @@ case ${BUILD_TYPE} in
 				TAR_ARCH=$(echo "${TAR_FILE}" | awk -F '[-.]' '{print $(NF-2)}')
 				mkdir -p /tmp/tp-${TAR_ARCH}/usr/sbin
 				tar -xvf /tmp/tars/${TAR_FILE} -C /tmp/tp-${TAR_ARCH}/usr/sbin --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
-				docker run --rm -it -v "/tmp/tp-${TAR_ARCH}:/tmp/fpm" -w "/tmp/fpm" \
-					"fpm:${pkg}" -s pleaserun -t ${pkg} -n 'teleport' /usr/sbin/teleport -v ${REMOTE_BRANCH/v/} -C /tmp/fpm --architecture "${TAR_ARCH}" -p teleport_VERSION_ARCH.${pkg}
-#					"fpm:${pkg}" -s dir -t ${pkg} -n 'teleport' -v ${REMOTE_BRANCH/v/} -C /tmp/fpm --architecture "${TAR_ARCH}" -p teleport_VERSION_ARCH.${pkg} --prefix /usr/local/bin/
+				# Use fpm's pleaserun config to generate service files
+				docker run --rm -it -v "/tmp/tp-${pkg}-${TAR_ARCH}:/tmp/fpm" -w "/tmp/fpm" \
+					"fpm:${pkg}" \
+						-n 'teleport' \
+						-v ${REMOTE_BRANCH/v/} \
+						-C /tmp/fpm \
+						-s pleaserun \
+						-t dir \
+						--deb-no-default-config-files \
+						--directories "/var/lib/teleport" \
+						/usr/sbin/teleport
+				# Use fpm to bundle the deb
+				docker run --rm -it -v "/tmp/tp-${pkg}-${TAR_ARCH}:/tmp/fpm" -w "/tmp/fpm" \
+					"fpm:${pkg}" \
+						-n 'teleport' \
+						-v ${REMOTE_BRANCH/v/} \
+						-C /tmp/fpm \
+						-s dir \
+						-t ${pkg} \
+						--deb-no-default-config-files \
+						--architecture "${TAR_ARCH}" \
+						--deb-no-default-config-files \
+						--directories "/var/lib/teleport" \
+						-p teleport_VERSION_ARCH.${pkg} \
+						./teleport.dir/usr/share/=/usr/share \
+						./usr/sbin/=/usr/sbin
+				cp /tmp/tp-${pkg}-${TAR_ARCH}/teleport_*.${pkg} ${TRAVIS_BUILD_DIR}/artifacts
 			done
 		done
-		find /tmp
+		find /tmp ${TRAVIS_BUILD_DIR}/artifacts
 		;;
 esac
