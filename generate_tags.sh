@@ -23,7 +23,8 @@ for z in $(git ls-remote --tags https://github.com/gravitational/teleport.git | 
 	if [[ -n "${MAJOR}" && ${MAJOR} -ge 3 ]]; then
 		if ! grep -q "^${z}$" VERSIONS; then
 			echo ${z} >> VERSIONS
-			git add VERSIONS
+			sort -V VERSIONS | tail -n 1 > LATEST
+			git add VERSIONS LATEST
 			git commit -m "TP: ${z}"
 			git push --quiet -u "${REMOTE}" "${BRANCH}"
 			git tag ${z} --force
