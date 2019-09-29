@@ -4,6 +4,7 @@ BRANCH="master"
 cd ${TRAVIS_BUILD_DIR}
 git status
 if [[ "${CI}" == "true" && "${TRAVIS}" == "true" ]]; then
+	git checkout master
 	git config user.email "travis@travis-ci.org"
 	git config user.name "Travis CI"
 	git config push.default current
