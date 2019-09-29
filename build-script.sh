@@ -122,8 +122,8 @@ case ${BUILD_TYPE} in
 			docker build -t "fpm:${pkg}" -f Dockerfile.${pkg}.fpm .
 			for TAR_FILE in $(ls -1 /tmp/tars | grep linux); do
 				TAR_ARCH=$(echo "${TAR_FILE}" | awk -F '[-.]' '{print $(NF-2)}')
-				mkdir -p /tmp/tp-${TAR_ARCH}/usr/sbin
-				tar -xvf /tmp/tars/${TAR_FILE} -C /tmp/tp-${TAR_ARCH}/usr/sbin --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
+				mkdir -p /tmp/tp-${pkg}-${TAR_ARCH}/usr/sbin
+				tar -xvf /tmp/tars/${TAR_FILE} -C /tmp/tp-${pkg}-${TAR_ARCH}/usr/sbin --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
 				# Use fpm's pleaserun config to generate service files
 				docker run --rm -it -v "/tmp/tp-${pkg}-${TAR_ARCH}:/tmp/fpm" -w "/tmp/fpm" \
 					"fpm:${pkg}" \
