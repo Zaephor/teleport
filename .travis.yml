@@ -21,6 +21,14 @@ _build_docker: &_build_docker
 
 _build_pkgs: &_build_pkgs
   script: ${TRAVIS_BUILD_DIR}/build-script.sh pkgs
+  deploy:
+  - provider: releases
+    api_key: "$GITHUB_OAUTH_TOKEN"
+    skip_cleanup: true
+    "on":
+      tags: true
+    file_glob: true
+    file: artifacts/*
 
 _deps_386: &_deps_386
   addons:
