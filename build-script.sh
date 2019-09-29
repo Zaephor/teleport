@@ -153,6 +153,5 @@ case ${BUILD_TYPE} in
 				cp /tmp/tp-${pkg}-${TAR_ARCH}/teleport_*.${pkg} ${TRAVIS_BUILD_DIR}/artifacts
 			done
 		done
-		find /tmp ${TRAVIS_BUILD_DIR}/artifacts
 		;;
 esac
