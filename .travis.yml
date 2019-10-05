@@ -21,6 +21,7 @@ _build_docker: &_build_docker
 
 _build_pkgs: &_build_pkgs
   script: ${TRAVIS_BUILD_DIR}/build-script.sh pkgs
+_deploy_pkgs: &_deploy_pkgs
   deploy:
   - provider: releases
     api_key: "$GITHUB_OAUTH_TOKEN"
@@ -94,7 +95,7 @@ _deps_docker: &_deps_docker
 dist: bionic
 
 language: go
-go: "1.9.7"
+go: "1.10"
 #go: "1.10"
 
 services:
@@ -145,6 +146,7 @@ matrix:
     <<: *_deps_arm64
   - env: BUILD_TYPE=pkgs
     <<: *_build_pkgs
+    <<: *_deploy_pkgs
     <<: *_deps_docker
     stage: build-other
   - env: BUILD_TYPE=docker
