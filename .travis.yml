@@ -95,7 +95,7 @@ _deps_docker: &_deps_docker
 dist: bionic
 
 language: go
-go: "1.10"
+go: "1.13"
 #go: "1.10"
 
 services:
