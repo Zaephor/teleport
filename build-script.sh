@@ -122,19 +122,22 @@ case ${BUILD_TYPE} in
 			docker build -t "fpm:${pkg}" -f Dockerfile.${pkg}.fpm .
 			for TAR_FILE in $(ls -1 /tmp/tars | grep linux); do
 				TAR_ARCH=$(echo "${TAR_FILE}" | awk -F '[-.]' '{print $(NF-2)}')
-				mkdir -p /tmp/tp-${pkg}-${TAR_ARCH}/usr/sbin
-				tar -xvf /tmp/tars/${TAR_FILE} -C /tmp/tp-${pkg}-${TAR_ARCH}/usr/sbin --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
+				mkdir -p /tmp/tp-${pkg}-${TAR_ARCH}/usr/local/bin /tmp/tp-${pkg}-${TAR_ARCH}/etc/systemd/system /tmp/tp-${pkg}-${TAR_ARCH}/etc/init
+				cp systemd-teleport.service /tmp/tp-${pkg}-${TAR_ARCH}/etc/systemd/system/teleport.service
+				cp upstart-teleport.conf /tmp/tp-${pkg}-${TAR_ARCH}/etc/init/teleport.conf
+				tar -xvf /tmp/tars/${TAR_FILE} -C /tmp/tp-${pkg}-${TAR_ARCH}/usr/local/bin --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
+
 				# Use fpm's pleaserun config to generate service files
-				docker run --rm -it -v "/tmp/tp-${pkg}-${TAR_ARCH}:/tmp/fpm" -w "/tmp/fpm" \
-					"fpm:${pkg}" \
-						-n 'teleport' \
-						-v ${REMOTE_BRANCH/v/} \
-						-C /tmp/fpm \
-						-s pleaserun \
-						-t dir \
-						--deb-no-default-config-files \
-						--directories "/var/lib/teleport" \
-						/usr/sbin/teleport
+#				docker run --rm -it -v "/tmp/tp-${pkg}-${TAR_ARCH}:/tmp/fpm" -w "/tmp/fpm" \
+#					"fpm:${pkg}" \
+#						-n 'teleport' \
+#						-v ${REMOTE_BRANCH/v/} \
+#						-C /tmp/fpm \
+#						-s pleaserun \
+#						-t dir \
+#						--deb-no-default-config-files \
+#						--directories "/var/lib/teleport" \
+#						/usr/local/bin/teleport
 				# Use fpm to bundle the deb
 				docker run --rm -it -v "/tmp/tp-${pkg}-${TAR_ARCH}:/tmp/fpm" -w "/tmp/fpm" \
 					"fpm:${pkg}" \
@@ -143,13 +146,13 @@ case ${BUILD_TYPE} in
 						-C /tmp/fpm \
 						-s dir \
 						-t ${pkg} \
-						--deb-no-default-config-files \
 						--architecture "${TAR_ARCH}" \
 						--deb-no-default-config-files \
 						--directories "/var/lib/teleport" \
 						-p teleport_VERSION_ARCH.${pkg} \
-						./teleport.dir/usr/share/=/usr/share \
-						./usr/sbin/=/usr/sbin
+						./usr/local/bin/=/usr/local/bin \
+						./etc/=/etc
+#						./teleport.dir/usr/share/=/usr/share \
 				cp /tmp/tp-${pkg}-${TAR_ARCH}/teleport_*.${pkg} ${TRAVIS_BUILD_DIR}/artifacts
 			done
 		done

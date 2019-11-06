@@ -24,4 +24,4 @@ fi
 TP_REAL_OPTS+=( "--config=${TP_CONFIG:-/config/teleport.yaml}" )
 
 exec \
-	s6-setuidgid root /usr/sbin/teleport start ${TP_REAL_OPTS[@]}
+	s6-setuidgid root /usr/local/bin/teleport start ${TP_REAL_OPTS[@]}
