@@ -30,7 +30,6 @@ _deploy_pkgs: &_deploy_pkgs
       tags: true
     file_glob: true
     file: artifacts/*
-    name: "TP: ${TRAVIS_TAG}"
 
 _deps_386: &_deps_386
   addons:
