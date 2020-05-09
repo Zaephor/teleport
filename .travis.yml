@@ -9,8 +9,8 @@ _build_tar: &_build_tar
 _deploy_tar: &_deploy_tar
   deploy:
   - provider: releases
-    edge: true
-    token: "$GITHUB_OAUTH_TOKEN"
+    api_key: "$GITHUB_OAUTH_TOKEN"
+    skip_cleanup: true
     "on":
       tags: true
     file_glob: true
@@ -24,8 +24,8 @@ _build_pkgs: &_build_pkgs
 _deploy_pkgs: &_deploy_pkgs
   deploy:
   - provider: releases
-    edge: true
-    token: "$GITHUB_OAUTH_TOKEN"
+    api_key: "$GITHUB_OAUTH_TOKEN"
+    skip_cleanup: true
     "on":
       tags: true
     file_glob: true
