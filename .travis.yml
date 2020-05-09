@@ -92,7 +92,6 @@ _deps_docker: &_deps_docker
       - containerd.io
 
 ### Logic
-os: linux
 dist: bionic
 
 language: go
@@ -121,7 +120,7 @@ before_install:
 script:
 - ./build-script.sh
 
-jobs:
+matrix:
   include:
   - stage: cron-tag
     <<: *_cron_tag
