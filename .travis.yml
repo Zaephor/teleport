@@ -9,12 +9,12 @@ _build_tar: &_build_tar
 _deploy_tar: &_deploy_tar
   deploy:
   - provider: releases
-    token: "$GITHUB_OAUTH_TOKEN"
-    skip_cleanup: true
-    "on":
-      tags: true
+    edge: true
+    token: "$GITHUB_TOKEN"
     file_glob: true
     file: artifacts/*
+    "on":
+      tags: true
 
 _build_docker: &_build_docker
   script: ${TRAVIS_BUILD_DIR}/build-script.sh docker
@@ -24,12 +24,12 @@ _build_pkgs: &_build_pkgs
 _deploy_pkgs: &_deploy_pkgs
   deploy:
   - provider: releases
-    token: "$GITHUB_OAUTH_TOKEN"
-    skip_cleanup: true
-    "on":
-      tags: true
+    edge: true
+    token: "$GITHUB_TOKEN"
     file_glob: true
     file: artifacts/*
+    "on":
+      tags: true
 
 _deps_386: &_deps_386
   addons:
