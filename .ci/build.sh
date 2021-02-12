@@ -1,4 +1,5 @@
 #!/bin/bash
+eval $(go env | sed -r 's/^(set )?(\w+)=("?)(.*)\3$/\2="\4"/gm')
 ARCH_LABEL="${1}"
 LATEST="$(cat LATEST)"
 
