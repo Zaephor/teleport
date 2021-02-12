@@ -1,0 +1,38 @@
+on: [push]
+#on:
+#  push:
+#    tags:
+#    - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+      matrix:
+        arch:
+        - i386
+        - amd64
+        - armel
+        - armhf
+        - arm64
+
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+
+    - uses: actions/setup-go@v2
+      with:
+        stable: 'false'
+        go-version: '1.14.15'
+
+    - name: Build ${{ matrix.arch }}
+      env:
+        BUILD_ARCH: ${{ matrix.arch }}
+      run: |
+        cat LATEST
+        go env
+        make release
