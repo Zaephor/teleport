@@ -60,6 +60,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
+    - name: Setup Docker
+      uses: docker-practice/actions-setup-docker@master
+      with:
+        docker_version: 19.03
+        docker_channel: stable
     - name: Docker ${{ matrix.arch }}
       id: docker
       run: |
