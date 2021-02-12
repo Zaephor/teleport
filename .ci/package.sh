@@ -11,11 +11,13 @@ for pkg in 'deb'; do
 		mkdir -p /tmp/tp-${pkg}-${TAR_ARCH}/usr/local/bin /tmp/tp-${pkg}-${TAR_ARCH}/etc/systemd/system /tmp/tp-${pkg}-${TAR_ARCH}/etc/init
 		cp systemd-teleport.service /tmp/tp-${pkg}-${TAR_ARCH}/etc/systemd/system/teleport.service
 		cp upstart-teleport.conf /tmp/tp-${pkg}-${TAR_ARCH}/etc/init/teleport.conf
-		tar -xvf /tmp/tars/${TAR_FILE} -C /tmp/tp-${pkg}-${TAR_ARCH}/usr/local/bin --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
+		tar -xvf /tmp/tars/${TAR_FILE} -C /tmp/tp-${pkg}-${TAR_ARCH}/usr/local/bin --strip-components=1 teleport/teleport teleport/tctl teleport/tsh teleport/VERSION
+		BUILD_TARGET=$(cat /tmp/tp-${pkg}-${TAR_ARCH}/usr/local/bin/VERSION)
+		rm /tmp/tp-${pkg}-${TAR_ARCH}/usr/local/bin/VERSION
 		docker run --rm -it -v "/tmp/tp-${pkg}-${TAR_ARCH}:/tmp/fpm" -w "/tmp/fpm" \
 			"fpm:${pkg}" \
 				-n 'teleport' \
-				-v ${REMOTE_BRANCH/v/} \
+				-v ${BUILD_TARGET/v/} \
 				-C /tmp/fpm \
 				-s dir \
 				-t ${pkg} \
