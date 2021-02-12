@@ -72,19 +72,16 @@ go env
 _log "Build ${BUILD_TARGET}"
 make release
 
-# Move back to main folder
-_log "Move artifact"
-mv teleport-${BUILD_TARGET}-* ${OPWD}
-
 # Rename artifact to my convention
 _log "Rename artifact"
 BUNDLE=$(ls -1 | grep 'teleport-.*\(zip\|tar.gz\)')
 VERSION=${BUILD_TARGET:-$(echo "${BUNDLE}" | awk -F '-' '{print $2"-"$3}')}
 NEW_NAME="teleport-${VERSION}-${GOOS}-${ARCH_LABEL}"
-mkdir artifacts
+mkdir ${OPWD}/artifacts
 if [[ "${BUNDLE#*.}" == "zip" ]]; then
-	mv "${BUNDLE}" "artifacts/${NEW_NAME}.zip"
+	mv "${BUNDLE}" "${OPWD}/artifacts/${NEW_NAME}.zip"
 else
-	mv "${BUNDLE}" "artifacts/${NEW_NAME}.tar.gz"
+	mv "${BUNDLE}" "${OPWD}/artifacts/${NEW_NAME}.tar.gz"
 fi
+cd ${OPWD}
 ls -la artifacts
