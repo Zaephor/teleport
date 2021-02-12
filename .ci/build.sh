@@ -49,6 +49,9 @@ case "${ARCH_LABEL}" in
 		sudo apt-get -f -y install gcc-aarch64-linux-gnu gcc-7-aarch64-linux-gnu libc6-arm64-cross libc6-dev-arm64-cross
 		;;
 esac
+if [[ -n "${CC}${CXX}" || "${GOHOSTARCH}" != "${GOARCH}" ]]; then
+	export CGO_ENABLED=1
+fi
 
 ## Logic
 # Clone teleport release
@@ -56,13 +59,21 @@ _log "Clone tp"
 git clone -q --depth=1 --branch=${BUILD_TARGET} https://github.com/gravitational/teleport.git ${GOPATH}/src/github.com/gravitational/teleport
 cd ${GOPATH}/src/github.com/gravitational/teleport
 git checkout -qf ${BUILD_TARGET}
+if [[ "${BUILD_TARGET}" != "v"* ]]; then
+	BUILD_TARGET=$(awk -F '=' '/^VERSION=/{print $NF}' Makefile)
+	_log "Revising Build Target to ${BUILD_TARGET} from Makefile"
+fi
+
+# Informational
+_log "go env"
+go env
 
 # Build release
 _log "Build ${BUILD_TARGET}"
 make release
 
 # Move back to main folder
-_log "Obtain resulting artifact"
+_log "Move artifact"
 mv teleport-${BUILD_TARGET}-* ${OPWD}
 
 # Rename artifact to my convention
@@ -76,4 +87,4 @@ if [[ "${BUNDLE#*.}" == "zip" ]]; then
 else
 	mv "${BUNDLE}" "artifacts/${NEW_NAME}.tar.gz"
 fi
-ls artifacts
+ls -la artifacts

@@ -32,5 +32,4 @@ jobs:
     - name: Build ${{ matrix.arch }}
       run: |
         cat LATEST
-        go env
         bash .ci/build.sh ${{ matrix.arch }}
