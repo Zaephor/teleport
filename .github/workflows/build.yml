@@ -30,9 +30,7 @@ jobs:
         go-version: '1.14.15'
 
     - name: Build ${{ matrix.arch }}
-      env:
-        BUILD_ARCH: ${{ matrix.arch }}
       run: |
         cat LATEST
         go env
-        make release
+        bash .ci/build.sh ${{ matrix.arch }}
