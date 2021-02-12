@@ -2,6 +2,7 @@
 eval $(go env | sed -r 's/^(set )?(\w+)=("?)(.*)\3$/\2="\4"/gm')
 ARCH_LABEL="${1}"
 LATEST="$(cat LATEST)"
+OPWD=$(pwd)
 
 ## Func
 function _log {
@@ -9,7 +10,6 @@ function _log {
 }
 
 # General Setup
-OPWD=$(pwd)
 BUILD_TAG=${GITHUB_REF##*/}
 BUILD_TARGET=${BUILD_TAG:-${LATEST}}
 _log "Ref: ${GITHUB_REF##*/}"

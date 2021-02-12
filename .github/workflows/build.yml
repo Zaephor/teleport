@@ -41,11 +41,11 @@ jobs:
         docker_version: 19.03
         docker_channel: stable
 
-    - name: Package ${{ matrix.arch }}
+    - name: Package
       id: package
       run: |
         cat LATEST
-        bash .ci/package.sh ${{ matrix.arch }}
+        bash .ci/package.sh
 
     - name: Release
       uses: softprops/action-gh-release@v1
@@ -56,6 +56,10 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  docker:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
     - name: Docker ${{ matrix.arch }}
       id: docker
       run: |
