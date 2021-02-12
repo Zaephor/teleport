@@ -79,9 +79,11 @@ VERSION=${BUILD_TARGET:-$(echo "${BUNDLE}" | awk -F '-' '{print $2"-"$3}')}
 NEW_NAME="teleport-${VERSION}-${GOOS}-${ARCH_LABEL}"
 mkdir ${OPWD}/artifacts
 if [[ "${BUNDLE#*.}" == "zip" ]]; then
-	mv "${BUNDLE}" "${OPWD}/artifacts/${NEW_NAME}.zip"
+	NEW_NAME="${NEW_NAME}.zip"
 else
-	mv "${BUNDLE}" "${OPWD}/artifacts/${NEW_NAME}.tar.gz"
+	NEW_NAME="${NEW_NAME}.tar.gz"
 fi
+mv "${BUNDLE}" "${OPWD}/artifacts/${NEW_NAME}"
 cd ${OPWD}
 ls -la artifacts
+echo "::set-output name=artifact::artifacts/${NEW_NAME}\n"

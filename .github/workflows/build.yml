@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         arch:
         - i386
@@ -30,6 +30,34 @@ jobs:
         go-version: '1.14.15'
 
     - name: Build ${{ matrix.arch }}
+      id: build
       run: |
         cat LATEST
         bash .ci/build.sh ${{ matrix.arch }}
+
+    - name: Setup Docker
+      uses: docker-practice/actions-setup-docker@master
+      with:
+        docker_version: 19.03
+        docker_channel: stable
+
+    - name: Package ${{ matrix.arch }}
+      id: package
+      run: |
+        cat LATEST
+        bash .ci/package.sh ${{ matrix.arch }}
+
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          artifacts/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Docker ${{ matrix.arch }}
+      id: docker
+      run: |
+        cat LATEST
+        bash .ci/docker.sh ${{ matrix.arch }}
