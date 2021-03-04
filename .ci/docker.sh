@@ -31,7 +31,7 @@ docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}" &> /dev/null
 
 if [[ -n "${GH_USERNAME}${GH_PAT}" ]]; then
 	_log "Logging into github registry"
-	docker login https://docker.pkg.github.com -u "${GH_USERNAME}" -p "${GH_PAT}" &> /dev/null
+	docker login gchr.io -u "${GH_USERNAME}" -p "${GH_PAT}" &> /dev/null
 fi
 
 _log "Setup buildx project"
@@ -61,25 +61,28 @@ else
 		_log "Queing tag ${PREF}:debug"
 	done
 fi
-if [[ -n "${BUILD_TAG}" && "${LATEST}" == "${BUILD_TARGET}" ]]; then
-	for PREF in ${TAG_PREFIXES[@]}; do
-		DOCKER_TAGS+=( "-t" "${PREF}:${BUILD_TARGET}" )
-		_log "Queing tag ${PREF}:${BUILD_TARGET}"
-	done
-fi
 
-SUBTAG=${BUILD_TARGET}
-while [[ -n "${SUBTAG//[^.]}" ]]; do
-	LATEST_MATCH=$(awk "/${SUBTAG%.**}/ {a=\$0} END{print a}" "VERSIONS")
-	if [[ "${LATEST_MATCH}" == "${BUILD_TARGET}" ]]; then
+# Elaborate tags should only be used for actual releases
+if [[ -n "${BUILD_TAG}" && "${BUILD_TAG}" != "master" ]]; then
+	if [[ -n "${BUILD_TAG}" && "${LATEST}" == "${BUILD_TARGET}" ]]; then
 		for PREF in ${TAG_PREFIXES[@]}; do
-			DOCKER_TAGS+=( "-t" "${PREF}:${SUBTAG%.**}" )
-			echo "Queing tag ${PREF}:${SUBTAG%.**}"
+			DOCKER_TAGS+=( "-t" "${PREF}:${BUILD_TARGET}" )
+			_log "Queing tag ${PREF}:${BUILD_TARGET}"
 		done
 	fi
-	SUBTAG=${SUBTAG%.**}
-done
 
+	SUBTAG=${BUILD_TARGET}
+	while [[ -n "${SUBTAG//[^.]}" ]]; do
+		LATEST_MATCH=$(awk "/${SUBTAG%.**}/ {a=\$0} END{print a}" "VERSIONS")
+		if [[ "${LATEST_MATCH}" == "${BUILD_TARGET}" ]]; then
+			for PREF in ${TAG_PREFIXES[@]}; do
+				DOCKER_TAGS+=( "-t" "${PREF}:${SUBTAG%.**}" )
+				echo "Queing tag ${PREF}:${SUBTAG%.**}"
+			done
+		fi
+		SUBTAG=${SUBTAG%.**}
+	done
+fi
 
 _log "Determine platforms"
 FROM=$(awk '/^FROM/{print $NF}' "Dockerfile" | tail -n 1)
