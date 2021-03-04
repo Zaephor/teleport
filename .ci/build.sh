@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 eval $(go env | sed -r 's/^(set )?(\w+)=("?)(.*)\3$/\2="\4"/gm')
 ARCH_LABEL="${1}"
 OPWD=$(pwd)
@@ -19,6 +20,9 @@ _log "Ref: ${GITHUB_REF##*/}"
 _log "Latest: ${LATEST}"
 _log "Build Target: ${BUILD_TARGET}"
 _log "Build Arch: ${ARCH_LABEL}"
+
+# Update apt cache before we start installing things
+sudo apt-get -y update
 
 # Arch stuff
 case "${ARCH_LABEL}" in

@@ -73,4 +73,4 @@ jobs:
       id: docker
       run: |
         cat LATEST
-        bash .ci/docker.sh
+        bash .ci/docker.sh ${GITHUB_REF##*/}
