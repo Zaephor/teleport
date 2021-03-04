@@ -21,8 +21,6 @@ if [[ "${BUILD_TARGET}" == "master" ]]; then
         BUILD_TARGET=${LATEST}
 fi
 
-_log ""
-
 docker version
 _log "Setup deps for cross-building docker containers"
 docker run --rm --privileged multiarch/qemu-user-static:register
@@ -31,9 +29,9 @@ docker run --privileged linuxkit/binfmt:v0.7
 _log "Logging into docker registry"
 docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}" &> /dev/null
 
-if [[ -n "${GITHUB_USERNAME}${GITHUB_PAT}" ]]; then
+if [[ -n "${GH_USERNAME}${GH_PAT}" ]]; then
 	_log "Logging into github registry"
-	docker login https://docker.pkg.github.com -u "${GITHUB_USERNAME}" -p "${GITHUB_PAT}" &> /dev/null
+	docker login https://docker.pkg.github.com -u "${GH_USERNAME}" -p "${GH_PAT}" &> /dev/null
 fi
 
 _log "Setup buildx project"
@@ -42,27 +40,42 @@ _log "Setup buildx project"
 docker buildx use mybuilder
 docker buildx ls
 
+
+_log "Determine tag prefixes"
+TAG_PREFIXES=()
+if [[ -n "${DOCKER_TAG_PREFIXES}" ]]; then
+	TAG_PREFIXES+=( ${DOCKER_TAG_PREFIXES//,/ } )
+fi
+
 _log "Determine tags"
 DOCKER_TAGS=()
 
-if [[ -n "${LATEST}" && -n "${BUILD_TARGET}" && "${LATEST}" == "${BUILD_TARGET}" && "${BUILD_TARGET}" != "master" ]]; then
-	DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:latest" )
-	_log "Queing tag ${DOCKER_TAG}:latest"
+if [[ -n "${LATEST}" && -n "${BUILD_TARGET}" && "${LATEST}" == "${BUILD_TARGET}" && "${BUILD_TAG}" != "master" ]]; then
+	for PREF in ${TAG_PREFIXES[@]}; do
+		DOCKER_TAGS+=( "-t" "${PREF}:latest" )
+		_log "Queing tag ${PREF}:latest"
+	done
 else
-	DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:debug" )
-	_log "Queing tag ${DOCKER_TAG}:debug"
+	for PREF in ${TAG_PREFIXES[@]}; do
+		DOCKER_TAGS+=( "-t" "${PREF}:debug" )
+		_log "Queing tag ${PREF}:debug"
+	done
 fi
 if [[ -n "${BUILD_TAG}" && "${LATEST}" == "${BUILD_TARGET}" ]]; then
-	DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:${BUILD_TARGET}" )
-	_log "Queing tag ${DOCKER_TAG}:${BUILD_TARGET}"
+	for PREF in ${TAG_PREFIXES[@]}; do
+		DOCKER_TAGS+=( "-t" "${PREF}:${BUILD_TARGET}" )
+		_log "Queing tag ${PREF}:${BUILD_TARGET}"
+	done
 fi
 
 SUBTAG=${BUILD_TARGET}
 while [[ -n "${SUBTAG//[^.]}" ]]; do
 	LATEST_MATCH=$(awk "/${SUBTAG%.**}/ {a=\$0} END{print a}" "VERSIONS")
 	if [[ "${LATEST_MATCH}" == "${BUILD_TARGET}" ]]; then
-		DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:${SUBTAG%.**}" )
-		echo "Queing tag ${DOCKER_TAG}:${SUBTAG%.**}"
+		for PREF in ${TAG_PREFIXES[@]}; do
+			DOCKER_TAGS+=( "-t" "${PREF}:${SUBTAG%.**}" )
+			echo "Queing tag ${PREF}:${SUBTAG%.**}"
+		done
 	fi
 	SUBTAG=${SUBTAG%.**}
 done
@@ -91,7 +104,7 @@ fi
 _log "Build containers"
 DOCKER_ARGS=( "buildx" "build" "--platform" "$(_join "," "${PLATFORMS[@]}")" "--build-arg" "RELEASE=${BUILD_TARGET}" )
 DOCKER_ARGS+=( ${DOCKER_TAGS[@]} )
-#DOCKER_ARGS+=("--push")
+DOCKER_ARGS+=("--push")
 DOCKER_ARGS+=( "-f" "Dockerfile" "." )
 echo docker ${DOCKER_ARGS[@]}
 docker ${DOCKER_ARGS[@]}

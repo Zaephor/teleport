@@ -76,7 +76,9 @@ jobs:
       env:
         DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        DOCKER_TAG: ${{ secrets.DOCKER_TAG }}
+        DOCKER_TAG_PREFIXES: ${{ secrets.DOCKER_TAG_PREFIXES }}
+        GH_USERNAME: ${{ secrets.GH_USERNAME }}
+        GH_PAT: ${{ secrets.GH_PAT }}
       run: |
         cat LATEST
         bash .ci/docker.sh ${GITHUB_REF##*/}
