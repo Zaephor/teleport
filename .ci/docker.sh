@@ -63,13 +63,11 @@ else
 fi
 
 # Elaborate tags should only be used for actual releases
-if [[ -n "${BUILD_TAG}" && "${BUILD_TAG}" != "master" ]]; then
-	if [[ -n "${BUILD_TAG}" && "${LATEST}" == "${BUILD_TARGET}" ]]; then
-		for PREF in ${TAG_PREFIXES[@]}; do
-			DOCKER_TAGS+=( "-t" "${PREF}:${BUILD_TARGET}" )
-			_log "Queing tag ${PREF}:${BUILD_TARGET}"
-		done
-	fi
+if [[ -n "${BUILD_TAG}" && "${BUILD_TAG}" != "master" && -n "${BUILD_TARGET}" ]]; then
+	for PREF in ${TAG_PREFIXES[@]}; do
+		DOCKER_TAGS+=( "-t" "${PREF}:${BUILD_TARGET}" )
+		_log "Queing tag ${PREF}:${BUILD_TARGET}"
+	done
 
 	SUBTAG=${BUILD_TARGET}
 	while [[ -n "${SUBTAG//[^.]}" ]]; do
