@@ -64,13 +64,19 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 1
+
     - name: Setup Docker
       uses: docker-practice/actions-setup-docker@master
       with:
         docker_version: 19.03
         docker_channel: stable
+
     - name: Docker
       id: docker
+      env:
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        DOCKER_TAG: ${{ secrets.DOCKER_TAG }}
       run: |
         cat LATEST
         bash .ci/docker.sh ${GITHUB_REF##*/}
