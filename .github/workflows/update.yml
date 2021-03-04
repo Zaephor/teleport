@@ -1,0 +1,33 @@
+name: Check for updates
+
+on:
+  schedule:
+  - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+
+    - name: Update data
+      run: bash .ci/versions.sh
+
+    - name: Push changes
+      run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          if ! git diff-index --quiet HEAD --; then
+            git add VERSIONS LATEST
+            git commit -m "TP: $(tail -n 1 VERSIONS)"
+            git push --quiet
+            git tag "$(tail -n 1 VERSIONS)" --force
+            git push --quiet --tags --force
+          fi
