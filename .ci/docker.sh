@@ -21,6 +21,8 @@ if [[ "${BUILD_TARGET}" == "master" ]]; then
         BUILD_TARGET=${LATEST}
 fi
 
+_log ""
+
 docker version
 _log "Setup deps for cross-building docker containers"
 docker run --rm --privileged multiarch/qemu-user-static:register
@@ -34,9 +36,10 @@ if [[ -n "${GITHUB_USERNAME}${GITHUB_PAT}" ]]; then
 	docker login https://docker.pkg.github.com -u "${GITHUB_USERNAME}" -p "${GITHUB_PAT}" &> /dev/null
 fi
 
-_log "Create buildx project"
-docker buildx create --name teleport
-docker buildx use teleport
+_log "Setup buildx project"
+#docker buildx create --name teleport
+#docker buildx use teleport
+docker buildx use mybuilder
 docker buildx ls
 
 _log "Determine tags"
@@ -50,11 +53,11 @@ else
 	_log "Queing tag ${DOCKER_TAG}:debug"
 fi
 if [[ -n "${BUILD_TAG}" && "${LATEST}" == "${BUILD_TARGET}" ]]; then
-	DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:${REMOTE_BRANCH}" )
-	_log "Queing tag ${DOCKER_TAG}:${REMOTE_BRANCH}"
+	DOCKER_TAGS+=( "-t" "${DOCKER_TAG}:${BUILD_TARGET}" )
+	_log "Queing tag ${DOCKER_TAG}:${BUILD_TARGET}"
 fi
 
-SUBTAG=${REMOTE_BRANCH}
+SUBTAG=${BUILD_TARGET}
 while [[ -n "${SUBTAG//[^.]}" ]]; do
 	LATEST_MATCH=$(awk "/${SUBTAG%.**}/ {a=\$0} END{print a}" "VERSIONS")
 	if [[ "${LATEST_MATCH}" == "${BUILD_TARGET}" ]]; then
@@ -86,8 +89,9 @@ fi
 
 
 _log "Build containers"
-DOCKER_ARGS=( "buildx" "build" "--platform" "$(_join "," "${PLATFORMS[@]}")" "--build-arg" "RELEASE=${REMOTE_BRANCH}" )
+DOCKER_ARGS=( "buildx" "build" "--platform" "$(_join "," "${PLATFORMS[@]}")" "--build-arg" "RELEASE=${BUILD_TARGET}" )
 DOCKER_ARGS+=( ${DOCKER_TAGS[@]} )
-DOCKER_ARGS+=("--push")
+#DOCKER_ARGS+=("--push")
 DOCKER_ARGS+=( "-f" "Dockerfile" "." )
 echo docker ${DOCKER_ARGS[@]}
+docker ${DOCKER_ARGS[@]}
