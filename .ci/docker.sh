@@ -31,7 +31,7 @@ docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}" &> /dev/null
 
 if [[ -n "${GH_USERNAME}${GH_PAT}" ]]; then
 	_log "Logging into github registry"
-	docker login gchr.io -u "${GH_USERNAME}" -p "${GH_PAT}" &> /dev/null
+	docker login ghcr.io -u "${GH_USERNAME}" -p "${GH_PAT}" &> /dev/null
 fi
 
 _log "Setup buildx project"
