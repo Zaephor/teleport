@@ -40,20 +40,20 @@ case "${ARCH_LABEL}" in
 		export GOARCH=arm
 		export GOARM=5
 		export CC=arm-linux-gnueabi-gcc
-		sudo apt-get -f -y install gcc-arm-linux-gnueabi gcc-7-arm-linux-gnueabi gcc-arm-linux-gnueabihf gcc-7-arm-linux-gnueabihf libc6-armel-cross libc6-dev-armel-cross libc6-armhf-armel-cross libc6-dev-armhf-armel-cross
+		sudo apt-get -f -y install gcc-arm-linux-gnueabi gcc-arm-linux-gnueabihf libc6-armel-cross libc6-dev-armel-cross libc6-armhf-armel-cross libc6-dev-armhf-armel-cross
 		;;
 	"armhf")
 		export GOOS=linux
 		export GOARCH=arm
 		export GOARM=6
 		export CC=arm-linux-gnueabi-gcc
-		sudo apt-get -f -y install gcc-arm-linux-gnueabi gcc-7-arm-linux-gnueabi gcc-arm-linux-gnueabihf gcc-7-arm-linux-gnueabihf libc6-armel-cross libc6-dev-armel-cross libc6-armhf-armel-cross libc6-dev-armhf-armel-cross
+		sudo apt-get -f -y install gcc-arm-linux-gnueabi gcc-arm-linux-gnueabihf libc6-armel-cross libc6-dev-armel-cross libc6-armhf-armel-cross libc6-dev-armhf-armel-cross
 		;;
 	"arm64")
 		export GOOS=linux
 		export GOARCH=arm64
 		export CC=aarch64-linux-gnu-gcc
-		sudo apt-get -f -y install gcc-aarch64-linux-gnu gcc-7-aarch64-linux-gnu libc6-arm64-cross libc6-dev-arm64-cross
+		sudo apt-get -f -y install gcc-aarch64-linux-gnu libc6-arm64-cross libc6-dev-arm64-cross
 		;;
 esac
 if [[ -n "${CC}${CXX}" || "${GOHOSTARCH}" != "${GOARCH}" ]]; then
