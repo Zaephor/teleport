@@ -1,0 +1,27 @@
+#!/usr/bin/with-contenv bash
+#exec /usr/sbin/teleport start --config=/config/teleport.yaml
+
+UMASK_SET=${UMASK_SET:-022}
+
+umask "$UMASK_SET"
+
+TP_REAL_OPTS=()
+
+if [[ -n "${TP_OPTS}" ]]; then
+	TP_RAW_OPTS=( ${TP_OPTS/,/ } )
+	for VAL in ${TP_RAW_OPTS[@]}; do
+		TP_REAL_OPTS+=( "${VAL}" )
+	done
+fi
+
+if [[ -n "${TP_INSECURE}" && "${TP_INSECURE}" == "true" ]]; then
+	TP_REAL_OPTS+=( '--insecure' )
+fi
+if [[ -n "${TP_INSECURE_NO_TLS}" && "${TP_INSECURE_NO_TLS}" == "true" ]]; then
+	TP_REAL_OPTS+=( '--insecure-no-tls' )
+fi
+
+TP_REAL_OPTS+=( "--config=${TP_CONFIG:-/config/teleport.yaml}" )
+
+exec \
+	s6-setuidgid root /usr/local/bin/teleport start ${TP_REAL_OPTS[@]}
