@@ -62,6 +62,12 @@ jobs:
         fetch-depth: 1
         token: ${{ secrets.GH_PAT }}
 
+    - name: install arch deps
+      run: |
+        if [[ "${{ matrix.go_arch }}" == "386" ]]; then sudo apt-get -f -y install gcc-multilib libc6-dev-i386 ; fi
+        if [[ "${{ matrix.go_arch }}" == "arm" ]]; then sudo apt-get -f -y install gcc-arm-linux-gnueabi gcc-arm-linux-gnueabihf libc6-armel-cross libc6-dev-armel-cross libc6-armhf-armel-cross libc6-dev-armhf-armel-cross ; fi
+        if [[ "${{ matrix.go_arch }}" == "arm64" ]]; then sudo apt-get -f -y install gcc-aarch64-linux-gnu libc6-arm64-cross libc6-dev-arm64-cross ; fi
+
     - name: vars
       id: vars
       run: |
@@ -72,22 +78,19 @@ jobs:
         fi
         echo "::set-output name=pkg_ver::${VERSION}"
         if [[ -e "source/go.mod" ]]; then
-                echo "::set-output name=go_version::$(awk '/^go/{print $NF}' source/go.mod)"
+                echo "::set-output name=go_version::$(awk '/^go /{print $NF}' source/go.mod)"
+        elif [[ -e "source/Godeps/Godeps.json" ]]; then
+                echo "::set-output name=go_version::$(jq --raw-output -c '.GoVersion' source/Godeps/Godeps.json | sed 's/go//')"
         else
-                # TODO: Come back to solving this for older versions
                 echo "::set-output name=go_version::"
+                echo "::error ::Not sure how to ID the necessary go version"
+                exit 1
         fi
 
     - uses: actions/setup-go@v2
       with:
         stable: 'true'
         go-version: '${{ steps.vars.outputs.go_version }}'
-
-    - name: install arch deps
-      run: |
-        if [[ "${{ matrix.go_arch }}" == "386" ]]; then sudo apt-get -f -y install gcc-multilib libc6-dev-i386 ; fi
-        if [[ "${{ matrix.go_arch }}" == "arm" ]]; then sudo apt-get -f -y install gcc-arm-linux-gnueabi gcc-arm-linux-gnueabihf libc6-armel-cross libc6-dev-armel-cross libc6-armhf-armel-cross libc6-dev-armhf-armel-cross ; fi
-        if [[ "${{ matrix.go_arch }}" == "arm64" ]]; then sudo apt-get -f -y install gcc-aarch64-linux-gnu libc6-arm64-cross libc6-dev-arm64-cross ; fi
 
     - name: make tar.gz
       id: make
@@ -143,7 +146,6 @@ jobs:
 
     - name: Release
       uses: softprops/action-gh-release@v1
-#      if: startsWith(github.ref, 'refs/tags/')
       with:
         files: |
           artifacts/*
