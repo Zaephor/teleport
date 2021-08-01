@@ -92,7 +92,7 @@ jobs:
 
     - name: build deb
       id: deb
-      uses: kentik/pkg@v1
+      uses: kentik/pkg
       if: env.GOOS == 'linux'
       with:
         name: teleport
@@ -103,7 +103,7 @@ jobs:
 
     - name: build rpm
       id: rpm
-      uses: kentik/pkg@v1
+      uses: kentik/pkg
       if: env.GOOS == 'linux'
       with:
         name: teleport
