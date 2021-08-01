@@ -36,23 +36,47 @@ jobs:
           cc: aarch64-linux-gnu-gcc
 
     steps:
-    - name: checkout
+    - name: checkout ci
       uses: actions/checkout@v2
       with:
+        ref: ci
+        path: ci
         fetch-depth: 1
+        token: ${{ secrets.GH_PAT }}
+
+    - name: vars
+      id: vars_ci
+      run: |
+        echo "::set-output name=LATEST::$(cat ci/LATEST)"
+        if [[ -n "${{ github.event.inputs.version }}" ]]; then
+                echo "::set-output name=REF::${{ github.event.inputs.version }}"
+        else
+                echo "::set-output name=REF::${GITHUB_REF#refs/tags/}"
+        fi
+
+    - name: checkout source
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ steps.vars_ci.outputs.REF }}
+        path: source
+        fetch-depth: 1
+        token: ${{ secrets.GH_PAT }}
 
     - name: vars
       id: vars
       run: |
-        echo "::set-output name=go_version::$(awk '/^go/{print $NF}' go.mod || echo '1.14')"
-        echo "::set-output name=tag::v$(awk -F '=' '/^VERSION=/{print $NF}' Makefile)"
-        echo "::set-output name=pkg_ver::$(awk -F '=' '/^VERSION=/{print $NF}' Makefile)"
-#        if [[ -n "${{ github.event.inputs.version }}" ]]; then
-#          echo "::set-output name=pkg_ver::$(echo ${{ github.event.inputs.version }} | tr -d '[A-z]' )"
-#        else
-#          echo "::set-output name=tag::${GITHUB_REF#refs/tags/}"
-#          echo "::set-output name=pkg_ver::$(echo ${GITHUB_REF#refs/tags/} | tr -d '[A-z]' )"
-#        fi
+        VERSION=$(awk -F '=' '/^VERSION=/{print $NF}' source/Makefile)
+        if [[ "v${VERSION}" != "${{ steps.vars_ci.outputs.REF }}" ]]; then
+                echo "::error ::Makefile and tag didn't match (${VERSION} != ${{ steps.vars_ci.outputs.REF }})"
+                exit 1
+        fi
+        echo "::set-output name=pkg_ver::${VERSION}"
+        if [[ -e "source/go.mod" ]]; then
+                echo "::set-output name=go_version::$(awk '/^go/{print $NF}' source/go.mod)"
+        else
+                # TODO: Come back to solving this for older versions
+                echo "::set-output name=go_version::"
+        fi
 
     - uses: actions/setup-go@v2
       with:
@@ -65,32 +89,31 @@ jobs:
         if [[ "${{ matrix.go_arch }}" == "arm" ]]; then sudo apt-get -f -y install gcc-arm-linux-gnueabi gcc-arm-linux-gnueabihf libc6-armel-cross libc6-dev-armel-cross libc6-armhf-armel-cross libc6-dev-armhf-armel-cross ; fi
         if [[ "${{ matrix.go_arch }}" == "arm64" ]]; then sudo apt-get -f -y install gcc-aarch64-linux-gnu libc6-arm64-cross libc6-dev-arm64-cross ; fi
 
-    - name: make
+    - name: make tar.gz
       id: make
       env:
         GOARCH: ${{ matrix.go_arch }}
         GOARM: ${{ matrix.go_arm }}
         CC: ${{ matrix.cc }}
       run: |
+        mkdir artifacts
+        mv source
         if [[ -n "${CC}${CXX}" || "${GOHOSTARCH}" != "${GOARCH}" ]]; then export CGO_ENABLED=1 ; fi
         go env
         make release
 
         BUNDLE=$(ls -1 | grep 'teleport-.*\(zip\|tar.gz\)')
         NEW_BUNDLE="teleport-${{ steps.vars.outputs.tag }}-${{ env.GOOS }}-${{ matrix.name }}.tar.gz"
-        mkdir artifacts
-        mv ${BUNDLE} artifacts/${NEW_BUNDLE}
-        ls -la artifacts
+        mv ${BUNDLE} ../artifacts/${NEW_BUNDLE}
         echo "::set-output name=artifact::artifacts/${NEW_BUNDLE}\n"
 
     - name: prepare for packaging
       run: |
-        mkdir -p tmp tmp/usr/local/bin tmp/lib/systemd/system tmp/etc/init
-        cp systemd-teleport.service tmp/lib/systemd/system/teleport.service
-        cp upstart-teleport.conf tmp/etc/init/teleport.conf
-        tar -xvf ${{ steps.make.outputs.artifact }} -C tmp/usr/local/bin --strip-components=1 teleport/teleport teleport/tctl teleport/tsh teleport/VERSION
+        mkdir tmp
+        cp ci/package.yaml .
+        tar -xvf ${{ steps.make.outputs.artifact }} -C tmp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
 
-    - name: build deb
+    - name: make deb
       id: deb
       uses: kentik/pkg@v1.0.0-rc7
       if: env.GOOS == 'linux'
@@ -101,7 +124,7 @@ jobs:
         format: deb
         package: package.yaml
 
-    - name: build rpm
+    - name: make rpm
       id: rpm
       uses: kentik/pkg@v1.0.0-rc7
       if: env.GOOS == 'linux'
@@ -118,14 +141,9 @@ jobs:
         mv ${{ steps.rpm.outputs.package }} artifacts/
         find artifacts
 
-    - uses: actions/upload-artifact@v2
-      with:
-        name: teleport-${{ steps.vars.outputs.tag }}-${{ env.GOOS }}-${{ matrix.name }}
-        path: artifacts/
-
     - name: Release
       uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
+#      if: startsWith(github.ref, 'refs/tags/')
       with:
         files: |
           artifacts/*
@@ -136,22 +154,35 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
-    - name: Git checkout
+    - name: checkout ci
       uses: actions/checkout@v2
       with:
+        ref: ci
+        path: ci
         fetch-depth: 1
+        token: ${{ secrets.GH_PAT }}
+
+    - name: vars
+      id: vars_ci
+      run: |
+        echo "::set-output name=LATEST::$(cat ci/LATEST)"
+        if [[ -n "${{ github.event.inputs.version }}" ]]; then
+                INPUT="${{ github.event.inputs.version }}"
+        else
+                INPUT="${GITHUB_REF#refs/tags/}"
+        fi
+        echo "::set-output name=REF::${INPUT}"
+        if [[ "$(cat ci/LATEST)" == "${INPUT}" ]]; then
+                echo "::set-output name=TAG::latest"
+        else
+                echo "::set-output name=TAG::dev"
+        fi
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v1
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
-
-    - name: vars
-      id: vars
-      run: |
-        echo "::set-output name=tag::v$(awk -F '=' '/^VERSION=/{print $NF}' Makefile)"
-        echo "::set-output name=pkg_ver::$(awk -F '=' '/^VERSION=/{print $NF}' Makefile)"
 
     - name: Log in to ghcr
       if: github.event_name != 'pull_request'
@@ -172,20 +203,23 @@ jobs:
       id: meta
       uses: docker/metadata-action@v3
       with:
-        images: draconrose/teleport,ghcr.io/${{ github.actor }}/teleport
+        images: draconrose/teleport,ghcr.io/${{ github.repository_owner	 }}/teleport
         flavor: |
-          latest=auto
+          latest=false
         tags: |
-          type=semver,pattern=v{{major}}.{{minor}}.{{patch}},value=${{ steps.vars.outputs.tag }}
-          type=semver,pattern=v{{major}}.{{minor}},value=${{ steps.vars.outputs.tag }}
-          type=semver,pattern=v{{major}},value=${{ steps.vars.outputs.tag }}
+          type=semver,pattern=v{{major}}.{{minor}}.{{patch}},value=${{ steps.vars_ci.outputs.REF }}
+          type=semver,pattern=v{{major}}.{{minor}},value=${{ steps.vars_ci.outputs.REF }}
+          type=semver,pattern=v{{major}},value=${{ steps.vars_ci.outputs.REF }}
+          type=raw,${{ steps.vars_ci.outputs.TAG }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v2
       with:
-        context: .
+        context: ci
         platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
-        push: false
+        push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        build-args:
+          RELEASE=${{ steps.vars_ci.outputs.REF }}
 
