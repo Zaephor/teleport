@@ -17,30 +17,52 @@ jobs:
       uses: actions/checkout@v2
       with:
         ref: ci
-        path: ci
+#        path: ci
         fetch-depth: 1
         token: ${{ secrets.GH_PAT }}
 
-    - name: checkout source
-      uses: actions/checkout@v2
-      with:
-        ref: source
-        path: souce
-        fetch-depth: 1
-        token: ${{ secrets.GH_PAT }}
-
-    - name: generate variables
-      id: vars
+    - name: Identify LATEST
       run: |
-        cd source
-        VERSION=$(comm -23 <(git ls-remote --tags ${{ env.REPO_UPSTREAM }} | awk -F '/' '{$0=$NF}; /^v/ && !/-/ && !/\^/{print}' | sort -V) <(git tag | sort -V) | head -n 1)
-        echo "::set-output name=tp_tag::${VERSION}"
+#        cd ci
+        git ls-remote --tags ${{ env.REPO_UPSTREAM }} | awk -F '/' '!/-/ && !/\^/ && /\/v/{$0=$NF;print}' | sort -Vr | head -n 1 > LATEST
+        if ! git diff-index --quiet HEAD --; then
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add LATEST
+          git commit -m "ci: Bump LATEST telport to $(cat LATEST)"
+          git push origin ci --quiet
+        fi
 
-    - name: Add git upstream to source
+    - name: Identify upstream branches
+      id: upstream
       run: |
-        cd source
+        echo "::set output branches=$(git ls-remote --heads https://github.com/gravitational/teleport.git | awk -F '/' '/refs\/heads\/branch/ && !/-/{$0=$NF;print}' | sort -V | tr '\n' ',')"
+
+    - name: Sync upstream branches
+      run: |
+#        cd ci
         git remote add upstream ${{ env.REPO_UPSTREAM }}
-        git fetch upstream
-        git merge ${{ steps.vars.outputs.tp_tag }}
-        git push origin source
-        git push origin ${{ steps.vars.outputs.tp_tag }} --force
+        for upstream_branch in $(echo "${{ steps.upstream.outputs.branches }}" | tr ',' '\n'); do
+          own_branch=$(echo "source-v${upstream_branch/v/}")
+
+          # Find/create matching branch for origin
+          if [[ "$(git ls-remote --heads origin ${own_branch})" ]]; then
+            git fetch origin ${own_branch}
+            git checkout -b ${own_branch} --track origin/${own_branch}
+          else
+            git fetch upstream refs/heads/branch/${upstream_branch}:${own_branch}
+            git checkout ${own_branch}
+          fi
+
+          # Update local branch from upstream
+          git pull upstream refs/heads/branch/${upstream_branch}
+
+          # Purge non-version-matching and non-release tags
+          git tag -l | grep -v "^${upstream_branch}" | xargs git tag -d
+          git tag -l | awk '!/^v/ || /-/ || /\^/{print}' | xargs git tag -d
+
+          # Update origin branch and tags
+          git push origin ${own_branch}
+          git push origin ${own_branch} --tags
+          sleep 1s
+        done
