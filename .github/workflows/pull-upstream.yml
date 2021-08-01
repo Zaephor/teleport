@@ -42,4 +42,5 @@ jobs:
         git remote add upstream ${{ env.REPO_UPSTREAM }}
         git fetch upstream
         git merge ${{ steps.vars.outputs.tp_tag }}
-        git push origin ${{ steps.vars.outputs.tp_tag }}
+        git push origin source
+        git push origin ${{ steps.vars.outputs.tp_tag }} --force
