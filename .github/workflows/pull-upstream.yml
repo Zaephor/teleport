@@ -1,0 +1,45 @@
+on:
+  workflow_dispatch:
+#  schedule:
+#  - cron: '0 0 * * *'
+
+env:
+  REPO_UPSTREAM: https://github.com/gravitational/teleport.git
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+
+    steps:
+    - name: checkout ci
+      uses: actions/checkout@v2
+      with:
+        ref: ci
+        path: ci
+        fetch-depth: 1
+        token: ${{ secrets.GH_PAT }}
+
+    - name: checkout source
+      uses: actions/checkout@v2
+      with:
+        ref: source
+        path: souce
+        fetch-depth: 1
+        token: ${{ secrets.GH_PAT }}
+
+    - name: generate variables
+      id: vars
+      run: |
+        cd source
+        VERSION=$(comm -23 <(git ls-remote --tags ${{ env.REPO_UPSTREAM }} | awk -F '/' '{$0=$NF}; /^v/ && !/-/ && !/\^/{print}' | sort -V) <(git tag | sort -V) | head -n 1)
+        echo "::set-output name=tp_tag::${VERSION}"
+
+    - name: Add git upstream to source
+      run: |
+        cd source
+        git remote add upstream ${{ env.REPO_UPSTREAM }}
+        git fetch upstream
+        git merge ${{ steps.vars.outputs.tp_tag }}
+        git push origin ${{ steps.vars.outputs.tp_tag }}

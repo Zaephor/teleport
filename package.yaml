@@ -1,0 +1,27 @@
+meta:
+  description: multi-arch builds of teleport
+  vendor: Zaephor <Zaephor@users.noreply.github.com>
+  maintainer: Zaephor <Zaephor@users.noreply.github.com>
+files:
+  "/usr/local/bin/teleport":
+    file: tmp/usr/local/bin/teleport
+    mode: "0755"
+    user: "root"
+  "/usr/local/bin/tctl":
+    file: tmp/usr/local/bin/tctl
+    mode: "0755"
+    user: "root"
+  "/usr/local/bin/tsh":
+    file: tmp/usr/local/bin/tsh
+    mode: "0755"
+    user: "root"
+  "/lib/systemd/system/teleport.service":
+    file: tmp/lib/systemd/system/teleport.service
+    mode: "0644"
+    user: "root"
+  "/etc/init/teleport.conf":
+    file: tmp/etc/init/teleport.conf
+    mode: "0644"
+    user: "root"
+units:
+  - lib/systemd/system/teleport.service
