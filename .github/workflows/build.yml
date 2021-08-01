@@ -4,7 +4,7 @@ on:
       version:
         description: 'version'
         required: true
-        default: 'v1.0.0'
+        default: 'v2.0.1'
   push:
     tags:
       - 'v*'
@@ -79,12 +79,9 @@ jobs:
         echo "::set-output name=pkg_ver::${VERSION}"
         if [[ -e "source/go.mod" ]]; then
                 echo "::set-output name=go_version::$(awk '/^go /{print $NF}' source/go.mod)"
-        elif [[ -e "source/Godeps/Godeps.json" ]]; then
-                echo "::set-output name=go_version::$(jq --raw-output -c '.GoVersion' source/Godeps/Godeps.json | sed 's/go//')"
         else
-                echo "::set-output name=go_version::"
-                echo "::error ::Not sure how to ID the necessary go version"
-                exit 1
+                echo "::set-output name=go_version::1.8"
+                echo "::warning ::Not sure how to ID the necessary go version"
         fi
 
     - uses: actions/setup-go@v2
@@ -100,53 +97,44 @@ jobs:
         CC: ${{ matrix.cc }}
       run: |
         mkdir artifacts
+        sudo mkdir -p ${GOROOT}/src/github.com/gravitational
+        sudo ln -s ${GITHUB_WORKSPACE}/source ${GOROOT}/src/github.com/gravitational/teleport
+        if [[ ! -e "source/go.mod" ]]; then
+                echo cd ${GOROOT}/src/github.com/gravitational/teleport
+        else
+                echo cd source
+        fi
         cd source
         if [[ -n "${CC}${CXX}" || "${GOHOSTARCH}" != "${GOARCH}" ]]; then export CGO_ENABLED=1 ; fi
         go env
         make release
 
         BUNDLE=$(ls -1 | grep 'teleport-.*\(zip\|tar.gz\)')
-        NEW_BUNDLE="teleport-${{ steps.vars.outputs.tag }}-${{ env.GOOS }}-${{ matrix.name }}.tar.gz"
-        mv ${BUNDLE} ../artifacts/${NEW_BUNDLE}
-        echo "::set-output name=artifact::artifacts/${NEW_BUNDLE}\n"
+        NEW_BUNDLE="teleport-${{ steps.vars_ci.outputs.REF }}-${{ env.GOOS }}-${{ matrix.name }}.tar.gz"
+        mv ${BUNDLE} ${GITHUB_WORKSPACE}/artifacts/${NEW_BUNDLE}
+        echo "::set-output name=artifact::artifacts/${NEW_BUNDLE}"
 
-    - name: prepare for packaging
+    - name: package
       run: |
+        mkdir bin
+        wget -q https://github.com/goreleaser/nfpm/releases/download/v2.6.0/nfpm_2.6.0_Linux_x86_64.tar.gz -O /tmp/nfpm.tar.gz
+        tar -xvf /tmp/nfpm.tar.gz -C bin nfpm
+        chmod +x bin/nfpm
         mkdir tmp
-        cp ci/package.yaml .
+        sed -e 's#%VERSION%#${{ steps.vars_ci.outputs.REF }}#g' -e 's#%ARCH%#${{ matrix.name }}#g' ci/nfpm.yaml > nfpm.yaml
         tar -xvf ${{ steps.make.outputs.artifact }} -C tmp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
-
-    - name: make deb
-      id: deb
-      uses: kentik/pkg@v1.0.0-rc7
-      if: env.GOOS == 'linux'
-      with:
-        name: teleport
-        version: ${{ steps.vars.outputs.pkg_ver }}
-        arch: ${{ matrix.name }}
-        format: deb
-        package: package.yaml
-
-    - name: make rpm
-      id: rpm
-      uses: kentik/pkg@v1.0.0-rc7
-      if: env.GOOS == 'linux'
-      with:
-        name: teleport
-        version: ${{ steps.vars.outputs.pkg_ver }}
-        arch: ${{ matrix.name }}
-        format: rpm
-        package: package.yaml
+        ./bin/nfpm package -f nfpm.yaml -p deb -t ${GITHUB_WORKSPACE}/artifacts/
+        ./bin/nfpm package -f nfpm.yaml -p rpm -t ${GITHUB_WORKSPACE}/artifacts/
+        
 
     - name: artifacts list
       run: |
-        mv ${{ steps.deb.outputs.package }} artifacts/
-        mv ${{ steps.rpm.outputs.package }} artifacts/
         find artifacts
 
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
+        tag_name: ${{ steps.vars_ci.outputs.REF }}
         files: |
           artifacts/*
       env:

@@ -1,0 +1,39 @@
+# nfpm example config file
+#
+# check https://nfpm.goreleaser.com/configuration for detailed usage
+#
+name: "teleport"
+arch: "%ARCH%"
+platform: "linux"
+version: "%VERSION%"
+section: "default"
+priority: "extra"
+provides:
+- teleport
+maintainer: "Zaephor <Zaephor@users.noreply.github.com>"
+description: |
+  multi-arch builds of teleport
+vendor: ""
+homepage: "https://github.com/zaephor/teleport"
+license: "MIT"
+contents:
+- src: ./tmp/teleport
+  dst: /usr/local/bin/teleport
+  file_info:
+    mode: 0755
+- src: ./tmp/tctl
+  dst: /usr/local/bin/tctl
+  file_info:
+    mode: 0755
+- src: ./tmp/tsh
+  dst: /usr/local/bin/tsh
+  file_info:
+    mode: 0755
+- src: ./ci/upstart-teleport.conf
+  dst: /etc/init/teleport.conf
+  file_info:
+    mode: 0644
+- src: ./ci/systemd-teleport.service
+  dst: /lib/systemd/system/teleport.service
+  file_info:
+    mode: 0644
