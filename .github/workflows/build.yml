@@ -80,8 +80,13 @@ jobs:
         if [[ -e "source/go.mod" ]]; then
                 echo "::set-output name=go_version::$(awk '/^go /{print $NF}' source/go.mod)"
         else
-                echo "::set-output name=go_version::1.8"
-                echo "::warning ::Not sure how to ID the necessary go version"
+                MAJOR=$(echo "${{ steps.vars_ci.outputs.REF }}" | cut -d '.' -f1)
+                MINOR=$(echo "${{ steps.vars_ci.outputs.REF }}" | cut -d '.' -f2)
+                OVERRIDE=$(grep "^${MAJOR}.${MINOR}," ci/golang.override | cut -d ',' -f2)
+                if [[ -z "${OVERRIDE}" ]]; then
+                        OVERRIDE=$(grep "^${MAJOR}" ci/golang.override | tail -n 1 | cut -d ',' -f2)
+                fi
+                echo "::set-output name=go_version::${OVERRIDE:-1.16}"
         fi
 
     - uses: actions/setup-go@v2
@@ -99,11 +104,6 @@ jobs:
         mkdir artifacts
         sudo mkdir -p ${GOROOT}/src/github.com/gravitational
         sudo ln -s ${GITHUB_WORKSPACE}/source ${GOROOT}/src/github.com/gravitational/teleport
-        if [[ ! -e "source/go.mod" ]]; then
-                echo cd ${GOROOT}/src/github.com/gravitational/teleport
-        else
-                echo cd source
-        fi
         cd source
         if [[ -n "${CC}${CXX}" || "${GOHOSTARCH}" != "${GOARCH}" ]]; then export CGO_ENABLED=1 ; fi
         go env
@@ -203,11 +203,26 @@ jobs:
           type=semver,pattern=v{{major}},value=${{ steps.vars_ci.outputs.REF }}
           type=raw,${{ steps.vars_ci.outputs.TAG }}
 
+    - name: Identify platforms
+      id: plat
+      run: |
+        ARCHES=""
+        for arch in 'amd64,amd64' 'armhf,arm/v7' 'arm64,arm64/v8'; do
+          EXISTS=$(curl --silent --head https://github.com/Zaephor/teleport/releases/download/${{ steps.vars_ci.outputs.REF }}/teleport-${{ steps.vars_ci.outputs.REF }}-linux-${arch%,*}.tar.gz | awk '/^HTTP/{print $2}')
+          if [[ -n "${EXISTS}" && "${EXISTS}" != "40"* ]]; then
+            if [[ -n "${ARCHES}" ]]; then
+                ARCHES+=","
+            fi
+            ARCHES+="linux/${arch#*,}"
+          fi
+        done
+        echo "::set-output name=ARCHES::${ARCHES}"
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v2
       with:
         context: ci
-        platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
+        platforms: ${{ steps.plat.outputs.ARCHES }}
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
