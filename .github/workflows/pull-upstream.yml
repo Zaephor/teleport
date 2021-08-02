@@ -23,11 +23,12 @@ jobs:
     - name: Identify LATEST
       run: |
         git ls-remote --tags ${{ env.REPO_UPSTREAM }} | awk -F '/' '!/-/ && !/\^/ && /\/v/{$0=$NF;print}' | sort -Vr | head -n 1 > LATEST
+        comm -23 <(git ls-remote --tags https://github.com/${{ github.repository }} | awk -F '/' '!/\^/{$0=$NF;print}' | sort -V) <(sort -V VERSIONS) | head -n 1 >> VERSIONS
         if ! git diff-index --quiet HEAD --; then
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add LATEST
-          git commit -m "ci: Bump LATEST telport to $(cat LATEST)"
+          git add LATEST VERSIONS
+          git commit -m "ci: Bump LATEST($(cat LATEST)) and VERSIONS($(tail -n 1 VERSIONS))"
           git push origin ci --quiet
         fi
 

@@ -7,9 +7,7 @@ on:
         default: 'v2.0.1'
   push:
     branches:
-      - 'source-*'
-    tags:
-      - 'v*'
+    - ci
 
 env:
   GOOS: linux
@@ -53,7 +51,7 @@ jobs:
         if [[ -n "${{ github.event.inputs.version }}" ]]; then
                 echo "::set-output name=REF::${{ github.event.inputs.version }}"
         else
-                echo "::set-output name=REF::${GITHUB_REF#refs/tags/}"
+                echo "::set-output name=REF::$(tail -n1 ci/VERSIONS)"
         fi
 
     - name: checkout source
