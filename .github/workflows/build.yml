@@ -9,7 +9,7 @@ on:
     branches:
       - 'source-*'
     tags:
-      - v*
+      - 'v*'
 
 env:
   GOOS: linux
