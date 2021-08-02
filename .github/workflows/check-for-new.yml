@@ -1,0 +1,33 @@
+on:
+  workflow_dispatch:
+  schedule:
+  - cron: '15,45 * * * *'
+
+env:
+  REPO_UPSTREAM: https://github.com/gravitational/teleport.git
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+
+    steps:
+    - name: checkout ci
+      uses: actions/checkout@v2
+      with:
+        ref: ci
+        fetch-depth: 1
+        token: ${{ secrets.GH_PAT }}
+
+    - name: Identify LATEST
+      run: |
+        git ls-remote --tags ${{ env.REPO_UPSTREAM }} | awk -F '/' '!/-/ && !/\^/ && /\/v/{$0=$NF;print}' | sort -Vr | head -n 1 > LATEST
+        comm -23 <(git ls-remote --tags https://github.com/${{ github.repository }} | awk -F '/' '!/\^/{$0=$NF;print}' | sort -V) <(sort -V VERSIONS) | head -n 1 >> VERSIONS
+        if ! git diff-index --quiet HEAD --; then
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add LATEST VERSIONS
+          git commit -m "ci: Bump LATEST($(cat LATEST)) and VERSIONS($(tail -n 1 VERSIONS))"
+          git push origin ci --quiet
+        fi
