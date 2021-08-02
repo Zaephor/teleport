@@ -6,8 +6,10 @@ on:
         required: true
         default: 'v2.0.1'
   push:
+    branches:
+      - 'source-*'
     tags:
-      - 'v*'
+      - v*
 
 env:
   GOOS: linux
