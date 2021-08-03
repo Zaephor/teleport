@@ -97,6 +97,13 @@ jobs:
         if [[ -z "${GO_VERSION}" && -e "source/go.mod" ]]; then
                 GO_VERSION="$(awk '/^go /{print $NF}' source/go.mod)"
         fi
+        if [[ -z "${GO_VERSION}" ]]; then
+                MAJOR=$(echo "${{ steps.vars_ci.outputs.REF }}" | cut -d '.' -f1)
+                OVERRIDE=$(grep "^${MAJOR}," ci/golang.override | cut -d ',' -f2)
+                if [[ -n "${OVERRIDE}" ]]; then
+                        GO_VERSION="${OVERRIDE}"
+                fi
+        fi
         echo "::set-output name=go_version::${GO_VERSION:-1.16}"
 
     - uses: actions/setup-go@v2
