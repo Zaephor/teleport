@@ -1,10 +1,14 @@
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'version'
+      tp_version:
+        description: 'Teleport Version'
         required: true
-        default: 'v2.0.1'
+        default: 'v2.3.0'
+      go_version:
+        description: 'Golang Version'
+        required: false
+        default: ''
   push:
     branches:
     - ci
@@ -48,8 +52,8 @@ jobs:
       id: vars_ci
       run: |
         echo "::set-output name=LATEST::$(cat ci/LATEST)"
-        if [[ -n "${{ github.event.inputs.version }}" ]]; then
-                echo "::set-output name=REF::${{ github.event.inputs.version }}"
+        if [[ -n "${{ github.event.inputs.tp_version }}" ]]; then
+                echo "::set-output name=REF::${{ github.event.inputs.tp_version }}"
         else
                 echo "::set-output name=REF::$(tail -n1 ci/VERSIONS)"
         fi
@@ -77,17 +81,23 @@ jobs:
                 exit 1
         fi
         echo "::set-output name=pkg_ver::${VERSION}"
-        if [[ -e "source/go.mod" ]]; then
-                echo "::set-output name=go_version::$(awk '/^go /{print $NF}' source/go.mod)"
-        else
+        GO_VERSION=""
+        if [[ -z "${GO_VERSION}" && -n "${{ github.event.inputs.go_version }}" ]]; then
+                GO_VERSION="${{ github.event.inputs.go_version }}"
+        fi
+        if [[ -z "${GO_VERSION}" ]]; then
                 MAJOR=$(echo "${{ steps.vars_ci.outputs.REF }}" | cut -d '.' -f1)
                 MINOR=$(echo "${{ steps.vars_ci.outputs.REF }}" | cut -d '.' -f2)
                 OVERRIDE=$(grep "^${MAJOR}.${MINOR}," ci/golang.override | cut -d ',' -f2)
-                if [[ -z "${OVERRIDE}" ]]; then
-                        OVERRIDE=$(grep "^${MAJOR}" ci/golang.override | tail -n 1 | cut -d ',' -f2)
+                if [[ -n "${OVERRIDE}" ]]; then
+                        GO_VERSION="${OVERRIDE}"
                 fi
-                echo "::set-output name=go_version::${OVERRIDE:-1.16}"
+                
         fi
+        if [[ -z "${GO_VERSION}" && -e "source/go.mod" ]]; then
+                GO_VERSION="$(awk '/^go /{print $NF}' source/go.mod)"
+        fi
+        echo "::set-output name=go_version::${GO_VERSION:-1.16}"
 
     - uses: actions/setup-go@v2
       with:
@@ -104,7 +114,11 @@ jobs:
         mkdir artifacts
         sudo mkdir -p ${GOROOT}/src/github.com/gravitational
         sudo ln -s ${GITHUB_WORKSPACE}/source ${GOROOT}/src/github.com/gravitational/teleport
-        cd source
+        if [[ -e "source/go.mod" ]]; then
+                cd source
+        else
+                cd ${GOROOT}/src/github.com/gravitational/teleport
+        fi
         if [[ -n "${CC}${CXX}" || "${GOHOSTARCH}" != "${GOARCH}" ]]; then export CGO_ENABLED=1 ; fi
         go env
         make release
