@@ -35,7 +35,7 @@ jobs:
         - name: armhf
           go_arch: arm
           go_arm: 6
-          cc: arm-linux-gnueabi-gcc
+          cc: arm-linux-gnueabihf-gcc
         - name: arm64
           go_arch: arm64
           cc: aarch64-linux-gnu-gcc
@@ -70,8 +70,9 @@ jobs:
     - name: install arch deps
       run: |
         if [[ "${{ matrix.go_arch }}" == "386" ]]; then sudo apt-get -f -y install gcc-multilib libc6-dev-i386 ; fi
-        if [[ "${{ matrix.go_arch }}" == "arm" ]]; then sudo apt-get -f -y install gcc-arm-linux-gnueabi gcc-arm-linux-gnueabihf libc6-armel-cross libc6-dev-armel-cross libc6-armhf-armel-cross libc6-dev-armhf-armel-cross ; fi
         if [[ "${{ matrix.go_arch }}" == "arm64" ]]; then sudo apt-get -f -y install gcc-aarch64-linux-gnu libc6-arm64-cross libc6-dev-arm64-cross ; fi
+        if [[ "${{ matrix.go_arch }}" == "arm" && "${{ matrix.name }}" == "armel" ]]; then sudo dpkg --add-architecture armel ; sudo apt-get -f -y install gcc-arm-linux-gnueabi libc6-armel-cross libc6-dev-armel-cross libc6-armel-armhf-cross libc6-dev-armel-armhf-cross ; fi
+        if [[ "${{ matrix.go_arch }}" == "arm" && "${{ matrix.name }}" == "armhf" ]]; then sudo dpkg --add-architecture armhf ; sudo apt-get -f -y install gcc-arm-linux-gnueabihf libc6-armhf-cross libc6-dev-armhf-cross libc6-armhf-armel-cross libc6-dev-armhf-armel-cross ; fi
 
     - name: vars
       id: vars
