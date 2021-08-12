@@ -44,15 +44,8 @@ jobs:
           own_branch=$(echo "source-v${upstream_branch/v/}")
           echo "::group::Updating branch ${own_branch}"
 
-          if [[ "$(git ls-remote --heads origin ${own_branch})" ]]; then
-            git fetch origin ${own_branch}
-            git checkout -b ${own_branch} --track origin/${own_branch}
-          else
-            git fetch upstream refs/heads/branch/${upstream_branch}:${own_branch}
-            git checkout ${own_branch}
-          fi
-
-          git pull upstream refs/heads/branch/${upstream_branch}
+          git fetch upstream refs/heads/branch/${upstream_branch}:${own_branch}
+          git checkout ${own_branch}
 
           git tag -l | grep -v "^v${upstream_branch/v/}" | xargs git tag -d
           git tag -l | awk '!/^v/ || /-/ || /\^/{print}' | xargs git tag -d
