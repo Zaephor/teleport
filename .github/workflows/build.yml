@@ -179,8 +179,8 @@ jobs:
       id: vars_ci
       run: |
         echo "::set-output name=LATEST::$(cat ci/LATEST)"
-        if [[ -n "${{ github.event.inputs.version }}" ]]; then
-                INPUT="${{ github.event.inputs.version }}"
+        if [[ -n "${{ github.event.inputs.tp_version }}" ]]; then
+                INPUT="${{ github.event.inputs.tp_version }}"
         else
                 INPUT=$(tail -n1 ci/VERSIONS)
         fi
