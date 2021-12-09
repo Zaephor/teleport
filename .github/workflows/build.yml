@@ -26,8 +26,10 @@ jobs:
         include:
         - name: i386
           go_arch: 386
+          cargo_target: i686-unknown-linux-gnu
         - name: amd64
           go_arch: amd64
+          cargo_target: x86_64-unknown-linux-gnu
         - name: armel
           go_arch: arm
           go_arm: 5
@@ -36,9 +38,11 @@ jobs:
           go_arch: arm
           go_arm: 6
           cc: arm-linux-gnueabihf-gcc
+          cargo_target: arm-unknown-linux-gnueabihf
         - name: arm64
           go_arch: arm64
           cc: aarch64-linux-gnu-gcc
+          cargo_target: aarch64-unknown-linux-gnu
 
     steps:
     - name: checkout ci
@@ -77,6 +81,11 @@ jobs:
           sudo dpkg --add-architecture armel
           sudo apt-get -f -y install gcc-arm-linux-gnueabi libc6-armel-cross libc6-dev-armel-cross libc6-armel-armhf-cross libc6-dev-armel-armhf-cross
           sudo ln -s "$(which arm-linux-gnueabi-gcc)" "$(dirname $(which arm-linux-gnueabi-gcc))/arm-linux-gnueabihf-gcc"
+        fi
+        if [[ -n "${{ matrix.cargo_target }}" ]]; then
+          rustup target add ${{ matrix.cargo_target }}
+        else
+          rustup self uninstall -y
         fi
 
     - name: vars
