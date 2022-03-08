@@ -20,7 +20,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-18.04
-    container: ubuntu:trusty
     defaults:
       run:
         shell: bash
@@ -85,10 +84,6 @@ jobs:
           sudo dpkg --add-architecture armel
           sudo apt-get -f -y install gcc-arm-linux-gnueabi libc6-armel-cross libc6-dev-armel-cross libc6-armel-armhf-cross libc6-dev-armel-armhf-cross
           sudo ln -s "$(which arm-linux-gnueabi-gcc)" "$(dirname $(which arm-linux-gnueabi-gcc))/arm-linux-gnueabihf-gcc"
-        fi
-        if [[ -z "$(which rustup)" ]]; then
-          sudo apt-get -f -y install curl
-          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none -y -q
         fi
         if [[ -n "${{ matrix.cargo_target }}" ]]; then
           rustup target add ${{ matrix.cargo_target }}
