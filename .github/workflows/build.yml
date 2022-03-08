@@ -20,9 +20,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-18.04
-    defaults:
-      run:
-        shell: bash
     strategy:
       fail-fast: false
       matrix:
