@@ -29,6 +29,10 @@ contents:
   dst: /usr/local/bin/tsh
   file_info:
     mode: 0755
+- src: ./tmp/tbot
+  dst: /usr/local/bin/tbot
+  file_info:
+    mode: 0755
 - src: ./ci/upstart-teleport.conf
   dst: /etc/init/teleport.conf
   file_info:

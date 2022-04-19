@@ -15,6 +15,10 @@ files:
     file: tmp/tsh
     mode: "0755"
     user: "root"
+  "/usr/local/bin/tbot":
+    file: tmp/tbot
+    mode: "0755"
+    user: "root"
   "/etc/init/teleport.conf":
     file: ci/upstart-teleport.conf
     mode: "0644"
