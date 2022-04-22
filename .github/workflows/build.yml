@@ -154,7 +154,7 @@ jobs:
         chmod +x bin/nfpm
         mkdir tmp
         sed -e 's#%VERSION%#${{ steps.vars_ci.outputs.REF }}#g' -e 's#%ARCH%#${{ matrix.name }}#g' ci/nfpm.yaml > nfpm.yaml
-        tar -xvf ${{ steps.make.outputs.artifact }} -C tmp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
+        tar -xvf ${{ steps.make.outputs.artifact }} -C tmp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh teleport/tbot
         ./bin/nfpm package -f nfpm.yaml -p deb -t ${GITHUB_WORKSPACE}/artifacts/
         ./bin/nfpm package -f nfpm.yaml -p rpm -t ${GITHUB_WORKSPACE}/artifacts/
         
