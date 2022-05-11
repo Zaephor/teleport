@@ -147,14 +147,21 @@ jobs:
         echo "::set-output name=artifact::artifacts/${NEW_BUNDLE}"
 
     - name: package
+      env:
+        GOPATH: /home/runner/work/teleport/teleport/go
       run: |
         mkdir bin
         wget -q https://github.com/goreleaser/nfpm/releases/download/v2.6.0/nfpm_2.6.0_Linux_x86_64.tar.gz -O /tmp/nfpm.tar.gz
         tar -xvf /tmp/nfpm.tar.gz -C bin nfpm
         chmod +x bin/nfpm
         mkdir tmp
-        sed -e 's#%VERSION%#${{ steps.vars_ci.outputs.REF }}#g' -e 's#%ARCH%#${{ matrix.name }}#g' ci/nfpm.yaml > nfpm.yaml
-        tar -xvf ${{ steps.make.outputs.artifact }} -C tmp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh teleport/tbot
+        if tar tf ${{ steps.make.outputs.artifact }} | grep -x teleport/tbot >/dev/null; then
+          sed -e 's#%VERSION%#${{ steps.vars_ci.outputs.REF }}#g' -e 's#%ARCH%#${{ matrix.name }}#g' ci/nfpm-tbot.yaml > nfpm.yaml
+          tar -xvf ${{ steps.make.outputs.artifact }} -C tmp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh teleport/tbot
+        else
+          sed -e 's#%VERSION%#${{ steps.vars_ci.outputs.REF }}#g' -e 's#%ARCH%#${{ matrix.name }}#g' ci/nfpm.yaml > nfpm.yaml
+          tar -xvf ${{ steps.make.outputs.artifact }} -C tmp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
+        fi
         ./bin/nfpm package -f nfpm.yaml -p deb -t ${GITHUB_WORKSPACE}/artifacts/
         ./bin/nfpm package -f nfpm.yaml -p rpm -t ${GITHUB_WORKSPACE}/artifacts/
         
