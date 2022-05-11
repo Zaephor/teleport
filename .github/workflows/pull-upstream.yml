@@ -55,6 +55,6 @@ jobs:
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add LATEST VERSIONS
-          git commit -m "ci: Bump LATEST($(cat LATEST)) and VERSIONS($(tail -n 1 VERSIONS))"
-          git push origin ci --quiet
+          git commit -m "ci: Bump LATEST($(cat LATEST)) and VERSIONS($(tail -n 1 VERSIONS))" || true
+          git push origin ci --quiet || true
         fi
