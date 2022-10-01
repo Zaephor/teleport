@@ -87,6 +87,7 @@ jobs:
         else
           rustup self uninstall -y
         fi
+        sudo apt-get -f -y install libpam0g-dev
 
     - name: vars
       id: vars
@@ -258,7 +259,7 @@ jobs:
         echo "::set-output name=ARCHES::${ARCHES}"
 
     - name: Build and push Docker image
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v3
       with:
         context: ci
         platforms: ${{ steps.plat.outputs.ARCHES }}
