@@ -56,11 +56,11 @@ jobs:
     - name: vars
       id: vars_ci
       run: |
-        echo "::set-output name=LATEST::$(cat ci/LATEST)"
+        echo "LATEST=$(cat ci/LATEST)" >> $GITHUB_OUTPUT
         if [[ -n "${{ github.event.inputs.tp_version }}" ]]; then
-                echo "::set-output name=REF::${{ github.event.inputs.tp_version }}"
+                echo "REF=${{ github.event.inputs.tp_version }}" >> $GITHUB_OUTPUT
         else
-                echo "::set-output name=REF::$(tail -n1 ci/VERSIONS)"
+                echo "REF=$(tail -n1 ci/VERSIONS)" >> $GITHUB_OUTPUT
         fi
 
     - name: checkout source
@@ -94,10 +94,10 @@ jobs:
       run: |
         VERSION=$(awk -F '=' '/^VERSION=/{print $NF}' go/src/${{ env.UPSTREAM }}/Makefile)
         if [[ "v${VERSION}" != "${{ steps.vars_ci.outputs.REF }}" ]]; then
-                echo "::error ::Makefile and tag didn't match (${VERSION} != ${{ steps.vars_ci.outputs.REF }})"
+                echo "=error =Makefile and tag didn't match (${VERSION} != ${{ steps.vars_ci.outputs.REF }})"
                 exit 1
         fi
-        echo "::set-output name=pkg_ver::${VERSION}"
+        echo "pkg_ver=${VERSION}" >> $GITHUB_OUTPUT
         GO_VERSION=""
         if [[ -z "${GO_VERSION}" && -n "${{ github.event.inputs.go_version }}" ]]; then
                 GO_VERSION="${{ github.event.inputs.go_version }}"
@@ -121,7 +121,7 @@ jobs:
                         GO_VERSION="${OVERRIDE}"
                 fi
         fi
-        echo "::set-output name=go_version::${GO_VERSION:-1.16}"
+        echo "go_version=${GO_VERSION:-1.16}" >> $GITHUB_OUTPUT
 
     - uses: actions/setup-go@v2
       with:
@@ -145,7 +145,7 @@ jobs:
         BUNDLE=$(ls -1 | grep 'teleport-.*\(zip\|tar.gz\)')
         NEW_BUNDLE="teleport-${{ steps.vars_ci.outputs.REF }}-${{ env.GOOS }}-${{ matrix.name }}.tar.gz"
         mv ${BUNDLE} ${GITHUB_WORKSPACE}/artifacts/${NEW_BUNDLE}
-        echo "::set-output name=artifact::artifacts/${NEW_BUNDLE}"
+        echo "artifact=artifacts/${NEW_BUNDLE}" >> $GITHUB_OUTPUT
 
     - name: package
       env:
@@ -196,17 +196,17 @@ jobs:
     - name: vars
       id: vars_ci
       run: |
-        echo "::set-output name=LATEST::$(cat ci/LATEST)"
+        echo "LATEST=$(cat ci/LATEST)"
         if [[ -n "${{ github.event.inputs.tp_version }}" ]]; then
                 INPUT="${{ github.event.inputs.tp_version }}"
         else
                 INPUT=$(tail -n1 ci/VERSIONS)
         fi
-        echo "::set-output name=REF::${INPUT}"
+        echo "REF=${INPUT}"
         if [[ "$(cat ci/LATEST)" == "${INPUT}" ]]; then
-                echo "::set-output name=TAG::latest"
+                echo "TAG=latest"
         else
-                echo "::set-output name=TAG::dev"
+                echo "TAG=dev"
         fi
 
     - name: Set up QEMU
@@ -256,7 +256,7 @@ jobs:
             ARCHES+="linux/${arch#*,}"
           fi
         done
-        echo "::set-output name=ARCHES::${ARCHES}"
+        echo "ARCHES=${ARCHES}"
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v3

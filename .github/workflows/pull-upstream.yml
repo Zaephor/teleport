@@ -23,7 +23,7 @@ jobs:
     - name: Identify upstream branches
       id: upstream
       run: |
-        echo "::set-output name=branches::$(git ls-remote --heads ${{ env.REPO_UPSTREAM }} | awk -F '/' '/refs\/heads\/branch/ && !/-/{$0=$NF;print}' | sort -V | tr '\n' ',')"
+        echo "branches=$(git ls-remote --heads ${{ env.REPO_UPSTREAM }} | awk -F '/' '/refs\/heads\/branch/ && !/-/{$0=$NF;print}' | sort -V | tr '\n' ',')" >> $GITHUB_OUTPUT
 
     - name: Sync upstream branches
       run: |
