@@ -172,7 +172,7 @@ jobs:
         find artifacts
 
     - name: Release
-      uses: softprops/action-gh-release@v0.1.12
+      uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.vars_ci.outputs.REF }}
         files: |
