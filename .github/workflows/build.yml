@@ -196,17 +196,17 @@ jobs:
     - name: vars
       id: vars_ci
       run: |
-        echo "LATEST=$(cat ci/LATEST)"
+        echo "LATEST=$(cat ci/LATEST)" >> $GITHUB_OUTPUT
         if [[ -n "${{ github.event.inputs.tp_version }}" ]]; then
                 INPUT="${{ github.event.inputs.tp_version }}"
         else
                 INPUT=$(tail -n1 ci/VERSIONS)
         fi
-        echo "REF=${INPUT}"
+        echo "REF=${INPUT}" >> $GITHUB_OUTPUT
         if [[ "$(cat ci/LATEST)" == "${INPUT}" ]]; then
-                echo "TAG=latest"
+                echo "TAG=latest" >> $GITHUB_OUTPUT
         else
-                echo "TAG=dev"
+                echo "TAG=dev" >> $GITHUB_OUTPUT
         fi
 
     - name: Set up QEMU
