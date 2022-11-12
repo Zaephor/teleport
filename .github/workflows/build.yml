@@ -51,7 +51,7 @@ jobs:
         - name: arm64
           go_arch: arm64
           go_os: android
-#          cc: aarch64-linux-gnu-gcc
+          cc: aarch64-linux-android21-clang
 
     steps:
     - name: checkout ci
@@ -89,7 +89,8 @@ jobs:
       if: matrix.go_os == 'android'
       run: |
         echo ${{ steps.setup-ndk.outputs.ndk-path }}
-        find ${{ steps.setup-ndk.outputs.ndk-path }} -type f | grep aarch64-linux
+        echo ${PATH}
+        find ${{ steps.setup-ndk.outputs.ndk-path }} -type f | grep aarch64-linux | sort
 
     - name: install arch deps
       run: |
