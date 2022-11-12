@@ -87,7 +87,9 @@ jobs:
         ndk-version: r25b
     - name: debug
       if: matrix.go_os == 'android'
-      run: echo ${{ steps.setup-ndk.outputs.ndk-path }}
+      run: |
+        echo ${{ steps.setup-ndk.outputs.ndk-path }}
+        find ${{ steps.setup-ndk.outputs.ndk-path }} -type f | grep aarch64-linux
 
     - name: install arch deps
       run: |
