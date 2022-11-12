@@ -111,6 +111,7 @@ jobs:
           rustup self uninstall -y
         fi
         if [[ "${{ matrix.go_os }}" == "linux" ]]; then sudo apt-get -f -y install libpam0g-dev ; fi
+        if [[ "${{ matrix.go_arch }}" == "arm64" && "${{ matrix.go_os }}" == "android" ]]; then sudo apt-get -f -y install libc6-dev:amd64 ; fi
 
     - name: vars
       id: vars
