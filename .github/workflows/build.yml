@@ -54,6 +54,8 @@ jobs:
 #          cc: 'clang -target aarch64-linux-android21'
           cc: /opt/hostedtoolcache/ndk/r25b/x64/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang
           cxx: /opt/hostedtoolcache/ndk/r25b/x64/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang++
+          ar: /opt/hostedtoolcache/ndk/r25b/x64/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
+          cflags: '-D__ANDROID_API__=30'
           # ^ Not ideal hardcoding...
 
     steps:
@@ -162,6 +164,8 @@ jobs:
         GOPATH: /home/runner/work/teleport/teleport/go
         CC: ${{ matrix.cc }}
         CXX: ${{ matrix.cxx }}
+        AR: ${{ matrix.ar }}
+        CFLAGS: ${{ matrix.cflags }}
       run: |
         mkdir artifacts
         cd go/src/${{ env.UPSTREAM }}
