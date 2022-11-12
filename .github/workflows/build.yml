@@ -82,8 +82,12 @@ jobs:
 
     - uses: nttld/setup-ndk@v1
       if: matrix.go_os == 'android'
+      id: setup-ndk
       with:
         ndk-version: r25b
+    - name: debug
+      if: matrix.go_os == 'android'
+      run: echo ${{ steps.setup-ndk.outputs.ndk-path }}
 
     - name: install arch deps
       run: |
