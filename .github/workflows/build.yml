@@ -80,6 +80,11 @@ jobs:
         fetch-depth: 1
         token: ${{ secrets.GH_PAT }}
 
+    - uses: nttld/setup-ndk@v1
+      if: matrix.go_os == 'android'
+      with:
+        ndk-version: r25b
+
     - name: install arch deps
       run: |
         if [[ -n "${{ matrix.go_arch }}" ]]; then sudo apt-get update ; fi
