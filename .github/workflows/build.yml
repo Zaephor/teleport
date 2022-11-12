@@ -162,11 +162,15 @@ jobs:
         GOARM: ${{ matrix.go_arm }}
         GOOS: ${{ matrix.go_os }}
         GOPATH: /home/runner/work/teleport/teleport/go
-        CC: ${{ matrix.cc }}
-        CXX: ${{ matrix.cxx }}
-        AR: ${{ matrix.ar }}
-        CFLAGS: ${{ matrix.cflags }}
+#        CC: ${{ matrix.cc }}
+#        CXX: ${{ matrix.cxx }}
+#        AR: ${{ matrix.ar }}
+#        CFLAGS: ${{ matrix.cflags }}
       run: |
+        if [[ -n "${{ matrix.cc }}" ]]; then export CC="${{ matrix.cc }}" ; fi
+        if [[ -n "${{ matrix.cxx }}" ]]; then export CXX="${{ matrix.cxx }}" ; fi
+        if [[ -n "${{ matrix.ar }}" ]]; then export AR="${{ matrix.ar }}" ; fi
+        if [[ -n "${{ matrix.cflags }}" ]]; then export CFLAGS="${{ matrix.cflags }}" ; fi
         mkdir artifacts
         cd go/src/${{ env.UPSTREAM }}
         if [[ -n "${CC}${CXX}" || "${GOHOSTARCH}" != "${GOARCH}" ]]; then export CGO_ENABLED=1 ; fi
