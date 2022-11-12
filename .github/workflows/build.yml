@@ -109,7 +109,7 @@ jobs:
         else
           rustup self uninstall -y
         fi
-        sudo apt-get -f -y install libpam0g-dev
+        if [[ "${{ matrix.go_os }}" == "linux" ]]; then sudo apt-get -f -y install libpam0g-dev ; fi
 
     - name: vars
       id: vars
