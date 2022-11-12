@@ -51,8 +51,9 @@ jobs:
         - name: arm64
           go_arch: arm64
           go_os: android
-          cc: 'clang -target aarch64-linux-android21'
-#          cc: /opt/hostedtoolcache/ndk/r25b/x64/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang
+#          cc: 'clang -target aarch64-linux-android21'
+          cc: /opt/hostedtoolcache/ndk/r25b/x64/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang
+          cxx: /opt/hostedtoolcache/ndk/r25b/x64/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang++
           # ^ Not ideal hardcoding...
 
     steps:
@@ -157,9 +158,10 @@ jobs:
       env:
         GOARCH: ${{ matrix.go_arch }}
         GOARM: ${{ matrix.go_arm }}
-        CC: ${{ matrix.cc }}
         GOOS: ${{ matrix.go_os }}
         GOPATH: /home/runner/work/teleport/teleport/go
+        CC: ${{ matrix.cc }}
+        CXX: ${{ matrix.cxx }}
       run: |
         mkdir artifacts
         cd go/src/${{ env.UPSTREAM }}
