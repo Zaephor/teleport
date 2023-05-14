@@ -102,10 +102,10 @@ jobs:
         if [[ -n "${{ matrix.go_arch }}" ]]; then sudo apt-get update ; fi
         if [[ "${{ matrix.go_arch }}" == "386" ]]; then sudo apt-get -f -y install gcc-multilib libc6-dev-i386 ; fi
         if [[ "${{ matrix.go_arch }}" == "arm64" ]]; then sudo apt-get -f -y install gcc-aarch64-linux-gnu libc6-arm64-cross libc6-dev-arm64-cross ; fi
-        if [[ "${{ matrix.go_arch }}" == "arm" && "${{ matrix.name }}" == "armhf" ]]; then sudo dpkg --add-architecture armhf ; sudo apt-get -f -y install gcc-arm-linux-gnueabihf libc6-armhf-cross libc6-dev-armhf-cross libc6-armhf-armel-cross libc6-dev-armhf-armel-cross ; fi
+        if [[ "${{ matrix.go_arch }}" == "arm" && "${{ matrix.name }}" == "armhf" ]]; then sudo dpkg --add-architecture armhf ; sudo apt-get -f -y install gcc-arm-linux-gnueabihf libc6-armhf-cross libc6-dev-armhf-cross libc6-armhf-cross libc6-dev-armhf-cross ; fi
         if [[ "${{ matrix.go_arch }}" == "arm" && "${{ matrix.name }}" == "armel" ]]; then
           sudo dpkg --add-architecture armel
-          sudo apt-get -f -y install gcc-arm-linux-gnueabi libc6-armel-cross libc6-dev-armel-cross libc6-armel-armhf-cross libc6-dev-armel-armhf-cross
+          sudo apt-get -f -y install gcc-arm-linux-gnueabi libc6-armel-cross libc6-dev-armel-cross libc6-armel-cross libc6-dev-armel-cross
           sudo ln -s "$(which arm-linux-gnueabi-gcc)" "$(dirname $(which arm-linux-gnueabi-gcc))/arm-linux-gnueabihf-gcc"
         fi
         if [[ -n "${{ matrix.cargo_target }}" ]]; then
