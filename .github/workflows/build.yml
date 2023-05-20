@@ -152,7 +152,6 @@ jobs:
 
     - uses: actions/setup-go@v4
       with:
-        stable: 'true'
         go-version: '${{ steps.vars.outputs.go_version }}'
 
     - name: make tar.gz
