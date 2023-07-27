@@ -9,9 +9,9 @@ on:
         description: 'Golang Version'
         required: false
         default: ''
-  push:
-    branches:
-    - ci
+#  push:
+#    branches:
+#    - ci
 
 env:
 #  GOOS: linux

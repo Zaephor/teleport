@@ -1,0 +1,353 @@
+on:
+  workflow_dispatch:
+    inputs:
+      tp_version:
+        description: 'Teleport Version'
+        required: true
+        default: 'v2.3.0'
+  push:
+    branches:
+      - ci
+
+env:
+  UPSTREAM: github.com/gravitational/teleport
+
+jobs:
+  build-linux:
+    runs-on: ${{ matrix.build_os || 'ubuntu-latest' }}
+    container:
+      image: ${{ matrix.container_image || null }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            go_os: linux
+            go_arch: amd64
+            container_image: 'ubuntu:14.04'
+            cargo_target: x86_64-unknown-linux-gnu
+          - name: linux-i386
+            go_os: linux
+            go_arch: 386
+            container_image: 'ubuntu:14.04'
+            cargo_target: i686-unknown-linux-gnu
+          - name: linux-arm64
+            go_os: linux
+            go_arch: arm64
+            cc: aarch64-linux-gnu-gcc
+            container_image: 'ubuntu:20.04'
+            cargo_target: aarch64-unknown-linux-gnu
+          - name: linux-armhf
+            go_os: linux
+            go_arch: arm
+            go_arm: 6
+            cc: arm-linux-gnueabihf-gcc
+            container_image: 'ubuntu:14.04'
+            cargo_target: arm-unknown-linux-gnueabihf
+          - name: linux-armel
+            go_os: linux
+            go_arch: arm
+            go_arm: 5
+            cc: arm-linux-gnueabi-gcc
+            container_image: 'ubuntu:14.04'
+
+#          - name: linux-mips
+#            go_os: linux
+#            go_arch: mips
+#            cc: mips-linux-gnu-gcc
+#            container_image: 'ubuntu:20.04'
+
+#          - name: android-amd64
+#            go_os: android
+#            go_arch: amd64
+#          - name: android-i386
+#            go_os: android
+#            go_arch: 386
+#          - name: android-arm64
+#            go_os: android
+#            go_arch: arm64
+#          - name: darwin-amd64
+#            go_os: darwin
+#            go_arch: amd64
+#            build_os: macos-latest
+#          - name: darwin-arm64
+#            go_os: darwin
+#            go_arch: arm64
+#            build_os: macos-latest
+#          - name: windows-amd64
+#            go_os: windows
+#            go_arch: amd64
+#            build_os: windows-latest
+    steps:
+      - name: checkout ci
+        uses: actions/checkout@v3
+        with:
+          ref: ci
+          path: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: vars
+        id: vars
+        run: |
+          echo "pwd=$PWD" | tee -a ${GITHUB_OUTPUT}
+          export RECENT=$(echo "ver_recent=$(tail -n1 ci/VERSIONS)" | tee -a ${GITHUB_OUTPUT})
+          export LATEST=$(echo "ver_latest=$(cat ci/LATEST)" | tee -a ${GITHUB_OUTPUT})
+          if [ -n "${{ github.event.inputs.tp_version }}" ]; then
+            echo "build_ver=${{ github.event.inputs.tp_version }}" | tee -a ${GITHUB_OUTPUT}
+          else
+            echo "build_ver=${RECENT#*=}" | tee -a ${GITHUB_OUTPUT}
+          fi
+
+      - name: checkout source
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.vars.outputs.build_ver }}
+          path: go/src/${{ env.UPSTREAM }}
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: debug
+        id: debug
+        run: |
+          echo "::group::pwd"
+          echo $PWD
+          echo "::endgroup::"
+          echo "::group::find"
+          find .
+          echo "::endgroup::"
+
+      - uses: actions/setup-go@v4
+        id: setup-go
+        with:
+          go-version-file: 'go/src/${{ env.UPSTREAM }}/go.mod'
+          check-latest: false
+
+      - name: prep
+        env:
+          ENV_OS: ${{ matrix.build_os || 'ubuntu-latest' }}
+        run: |
+          if [ ! -e /usr/bin/sudo ]; then
+            echo "::group::sudo lazy shim"
+            echo "SHELL - $SHELL"
+            echo "#!/bin/sh" > /usr/bin/sudo
+            echo '${@}' >> /usr/bin/sudo
+            chmod +x /usr/bin/sudo
+            echo "::endgroup::"
+          fi
+          echo "::group::preinstall"
+          dpkg -l
+          echo "::endgroup::"
+          mkdir -p ${{ steps.vars.outputs.pwd }}/dist/teleport
+          echo "::group::apt-get update"
+          sudo apt-get -y update
+          echo "::endgroup::"
+          echo "::group::install"
+          if [ "${{ env.ENV_OS }}" = "ubuntu-latest" ]; then
+            sudo apt-get -f -y install curl wget git libpam0g-dev binutils bison gcc make binutils-multiarch build-essential
+            VERSION_ID=$(awk -F'[=\"]' '/^VERSION_ID/{print $(NF-1)}' /etc/os-release)
+            if [ "${VERSION_ID}" = "14.04" ]; then
+              sudo apt-get -f -y install binutils-2.26
+            fi
+          fi
+
+          if [ "${{ matrix.go_arch }}" = "amd64" ]; then
+            sudo apt-get -f -y install libc6-dev
+          fi
+          if [ "${{ matrix.go_arch }}" = "386" ]; then
+            sudo apt-get -f -y install gcc-multilib libc6-dev-i386
+          fi
+          if [ "${{ matrix.go_arch }}" = "arm64" ]; then
+            sudo apt-get -f -y install libc6-arm64-cross libc6-dev-arm64-cross
+          fi
+          if [ "${{ matrix.go_arch }}" = "arm"]; then
+            if [ "${{ matrix.go_arm }}" = "6" ]; then
+              sudo dpkg --add-architecture armhf
+              sudo apt-get -f -y install libc6-armhf-cross libc6-dev-armhf-cross libc6-armhf-cross libc6-dev-armhf-cross
+            fi
+            if [ "${{ matrix.go_arm }}" = "5" ]; then
+              sudo dpkg --add-architecture armel
+              sudo apt-get -f -y install libc6-armel-cross libc6-dev-armel-cross libc6-armel-cross libc6-dev-armel-cross
+            fi
+          fi
+          if [ "${{ matrix.go_arch }}" = "mips" ]; then
+            sudo apt-get -f -y install libc6-mips-cross libc6-dev-mips-cross
+          fi
+
+          if [ "${{ matrix.name }}" = "linux-arm64" ]; then
+            sudo apt-get -f -y install gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+          fi
+          if [ "${{ matrix.name }}" = "linux-armhf" ]; then
+            sudo dpkg --add-architecture armhf
+            sudo apt-get -f -y install gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
+          fi
+          if [ "${{ matrix.name }}" = "linux-armel" ]; then
+            sudo dpkg --add-architecture armel
+            sudo apt-get -f -y install gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi
+          fi
+          if [ "${{ matrix.name }}" = "linux-mips" ]; then
+            sudo apt-get -f -y install gcc-mips-linux-gnu binutils-mips-linux-gnu
+          fi
+          if [ "${{ matrix.name }}" = "android-386" ]; then
+            sudo apt-get -f -y install gcc-i686-linux-android
+          fi
+          if [ "${{ matrix.name }}" = "android-arm64" ]; then
+            sudo apt-get -f -y install gcc-arm-linux-androideabi
+          fi
+          echo "::endgroup::"
+          echo "::group::postinstall"
+          dpkg -l
+          echo "::endgroup::"
+          echo "::group::other"
+          which ld
+          echo "::endgroup::"
+
+      - name: Set up JDK 1.8
+        if: matrix.go_os == 'android'
+        uses: actions/setup-java@v3
+        with:
+          java-version: 1.8
+          distribution: adopt
+
+      - name: Setup Android SDK
+        if: matrix.go_os == 'android'
+        uses: android-actions/setup-android@v2
+
+      - name: build
+        id: build
+        env:
+          GOPATH: ${{ steps.vars.outputs.pwd }}/go
+        run: |
+          export PATH="/usr/lib/binutils-2.26/bin:$PATH"
+          export GOOS=${{ matrix.go_os }}
+          export GOARCH=${{ matrix.go_arch }}
+          if [ -n "${{ matrix.go_arm }}" ]; then export GOARM=${{ matrix.go_arm }}; fi
+          if [ "${GOHOSTARCH}" != "${GOARCH}" ]; then export CGO_ENABLED=1; fi
+          if [ -n "${{ matrix.cc }}" ]; then export CC=${{ matrix.cc }}; export CGO_ENABLED=1; fi
+
+          cd go/src/${{ env.UPSTREAM }}
+          go clean -modcache
+          go get
+
+          echo "::group::go env"
+          go env
+          echo "::endgroup::"
+          for x in 'tctl' 'teleport' 'tsh' 'tbot'; do
+            if [ -d ./tool/$x ]; then
+              echo "::group::Building ${x}"
+              go build -tags "pam" -ldflags="-s -w" -o "${{ steps.vars.outputs.pwd }}/dist/teleport/${x}" ./tool/${x}
+              echo "::endgroup::"
+            fi
+          done
+          echo "${{ steps.vars.outputs.build_ver }}" > "${{ steps.vars.outputs.pwd }}/dist/teleport/VERSION"
+          cp -r "${{ steps.vars.outputs.pwd }}/go/src/${{ env.UPSTREAM }}/examples" "${{ steps.vars.outputs.pwd }}/dist/teleport"
+
+      - name: tar
+        run: |
+          cd "${{ steps.vars.outputs.pwd }}/dist"
+          tar czf teleport-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}.tar.gz teleport/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ github.event.repository.name }}-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}
+          path: dist/
+          retention-days: 1
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.vars.outputs.build_ver }}
+          files: |
+            dist/teleport-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [build-linux]
+    if: always()
+    steps:
+      - name: checkout ci
+        uses: actions/checkout@v3
+        with:
+          ref: ci
+          path: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: vars
+        id: vars_ci
+        run: |
+          echo "LATEST=$(cat ci/LATEST)" | tee -a $GITHUB_OUTPUT
+          if [[ -n "${{ github.event.inputs.tp_version }}" ]]; then
+                  INPUT="${{ github.event.inputs.tp_version }}"
+          else
+                  INPUT=$(tail -n1 ci/VERSIONS)
+          fi
+          echo "REF=${INPUT}" | tee -a $GITHUB_OUTPUT
+          if [[ "$(cat ci/LATEST)" == "${INPUT}" ]]; then
+                  echo "TAG=latest" | tee -a $GITHUB_OUTPUT
+          else
+                  echo "TAG=dev" | tee -a $GITHUB_OUTPUT
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to ghcr
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to docker hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: draconrose/teleport,ghcr.io/${{ github.repository_owner  }}/teleport
+          flavor: |
+            latest=false
+          tags: |
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}},value=${{ steps.vars_ci.outputs.REF }}
+            type=semver,pattern=v{{major}}.{{minor}},value=${{ steps.vars_ci.outputs.REF }}
+            type=semver,pattern=v{{major}},value=${{ steps.vars_ci.outputs.REF }}
+            type=raw,${{ steps.vars_ci.outputs.TAG }}
+
+      - name: Identify platforms
+        id: plat
+        run: |
+          ARCHES=""
+          for arch in 'amd64,amd64' 'armhf,arm/v7' 'arm64,arm64/v8'; do
+            EXISTS=$(curl --silent --head https://github.com/Zaephor/teleport/releases/download/${{ steps.vars_ci.outputs.REF }}/teleport-${{ steps.vars_ci.outputs.REF }}-linux-${arch%,*}.tar.gz | awk '/^HTTP/{print $2}')
+            if [[ -n "${EXISTS}" && "${EXISTS}" != "40"* ]]; then
+              if [[ -n "${ARCHES}" ]]; then
+                  ARCHES+=","
+              fi
+              ARCHES+="linux/${arch#*,}"
+            fi
+          done
+          echo "ARCHES=${ARCHES}"
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: ci
+          platforms: ${{ steps.plat.outputs.ARCHES }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args:
+            RELEASE=${{ steps.vars_ci.outputs.REF }}
+
