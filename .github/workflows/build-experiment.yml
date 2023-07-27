@@ -82,7 +82,7 @@ jobs:
       - name: checkout ci
         uses: actions/checkout@v3
         with:
-          ref: ci
+#          ref: ci
           path: ci
           fetch-depth: 1
           token: ${{ secrets.GH_PAT }}

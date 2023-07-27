@@ -5,6 +5,7 @@ on:
 
 env:
   REPO_UPSTREAM: https://github.com/gravitational/teleport.git
+  AWK_FILTER_TAG: awk -F '/' '/refs\/tags/ && $NF ~ /v[[:digit:]]+(\.[[:digit:]]){2}$/{print $NF}'
 
 jobs:
   update:
@@ -47,8 +48,8 @@ jobs:
 
     - name: Identify LATEST
       run: |
-        git ls-remote --tags ${{ env.REPO_UPSTREAM }} | awk -F '/' '!/-/ && !/\^/ && /\/v/{$0=$NF;print}' | sort -Vr | head -n 1 > LATEST
-        comm -23 <(git ls-remote --tags https://github.com/${{ github.repository }} | awk -F '/' '!/\^/{$0=$NF;print}' | sort -V) <(sort -V VERSIONS) | head -n 1 >> VERSIONS
+        git ls-remote --tags ${{ env.REPO_UPSTREAM }} | ${{ env.AWK_FILTER_TAG }} | sort -Vr | head -n 1 > LATEST
+        comm -23 <(git ls-remote --tags https://github.com/${{ github.repository }} | ${{ env.AWK_FILTER_TAG }} | sort -V) <(sort -V VERSIONS) | head -n 1 >> VERSIONS
         if ! git diff-index --quiet HEAD --; then
           echo "IF result: $?"
           git status
