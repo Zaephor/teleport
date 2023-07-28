@@ -1,7 +1,7 @@
 on:
   workflow_dispatch:
-  schedule:
-  - cron: '*/20 * * * *'
+#  schedule:
+#  - cron: '*/20 * * * *'
 
 env:
   REPO_UPSTREAM: https://github.com/gravitational/teleport.git
