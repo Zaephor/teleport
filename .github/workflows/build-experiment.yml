@@ -121,7 +121,7 @@ jobs:
         id: setup-go
         with:
           go-version-file: 'go/src/${{ env.UPSTREAM }}/go.mod'
-          check-latest: false
+          check-latest: true
 
       - name: prep
         env:
