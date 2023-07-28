@@ -234,7 +234,7 @@ jobs:
           echo "::group::go env"
           go env
           echo "::endgroup::"
-          for x in 'tctl' 'teleport' 'tsh' 'tbot'; do
+          for x in 'teleport' 'tsh' 'tctl' 'tbot'; do
             if [ -d ./tool/$x ]; then
               echo "::group::Building ${x}"
               go build -tags "pam" -ldflags="-s -w" -o "${{ steps.vars.outputs.pwd }}/dist/teleport/${x}" ./tool/${x}
