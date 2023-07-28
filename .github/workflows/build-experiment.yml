@@ -41,6 +41,7 @@ jobs:
             go_os: linux
             go_arch: arm
             go_arm: 6
+            go_experiment: nounified
             cc: arm-linux-gnueabihf-gcc
             container_image: 'ubuntu:14.04'
             cargo_target: arm-unknown-linux-gnueabihf
@@ -222,6 +223,7 @@ jobs:
           export GOOS=${{ matrix.go_os }}
           export GOARCH=${{ matrix.go_arch }}
           if [ -n "${{ matrix.go_arm }}" ]; then export GOARM=${{ matrix.go_arm }}; fi
+          if [ -n "${{ matrix.go_experiment }}" ]; then export GOEXPERIMENT=${{ matrix.go_experiment }}; fi
           if [ "${GOHOSTARCH}" != "${GOARCH}" ]; then export CGO_ENABLED=1; fi
           if [ -n "${{ matrix.cc }}" ]; then export CC=${{ matrix.cc }}; export CGO_ENABLED=1; fi
 
