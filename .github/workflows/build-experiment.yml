@@ -122,6 +122,7 @@ jobs:
         id: setup-go
         with:
           go-version-file: 'go/src/${{ env.UPSTREAM }}/go.mod'
+          cache-dependency-path: 'go/src/${{ env.UPSTREAM }}/go.sum'
           check-latest: true
 
       - name: prep
