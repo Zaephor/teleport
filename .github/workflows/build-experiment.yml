@@ -119,9 +119,11 @@ jobs:
           echo "::endgroup::"
 
       - uses: actions/setup-go@v4
+        working-directory: 'go/src/${{ env.UPSTREAM }}'
         id: setup-go
         with:
-          go-version-file: 'go/src/${{ env.UPSTREAM }}/go.mod'
+#          go-version-file: 'go/src/${{ env.UPSTREAM }}/go.mod'
+          go-version-file: go.mod
           check-latest: true
 
       - name: prep
