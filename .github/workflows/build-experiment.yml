@@ -357,3 +357,6 @@ jobs:
           build-args:
             RELEASE=${{ steps.vars_ci.outputs.REF }}
 
+  check-for-new:
+    needs: [build-linux,docker]
+    uses: ./.github/workflows/check-for-new.yml
