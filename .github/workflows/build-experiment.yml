@@ -72,9 +72,8 @@ jobs:
 #            build_os: windows-latest
     steps:
       - name: checkout ci
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
-#          ref: ci
           path: ci
           fetch-depth: 1
           token: ${{ secrets.GH_PAT }}
@@ -92,7 +91,7 @@ jobs:
           fi
 
       - name: checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           ref: ${{ steps.vars.outputs.build_ver }}
           path: go/src/${{ env.UPSTREAM }}
