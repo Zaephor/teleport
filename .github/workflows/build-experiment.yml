@@ -80,10 +80,6 @@ jobs:
 #            go_arch: amd64
 #            build_os: windows-latest
     steps:
-      - name: Set Node.js 20.x
-        uses: actions/setup-node@v1
-        with:
-          node-version: 20.x
       - name: checkout ci
         uses: actions/checkout@v4
         with:
