@@ -1,6 +1,9 @@
 on:
   workflow_call:
   workflow_dispatch:
+  repository_dispatch:
+    type:
+      - check
 #  schedule:
 #  - cron: '*/20 * * * *'
 
