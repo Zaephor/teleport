@@ -81,7 +81,7 @@ jobs:
 #            build_os: windows-latest
     steps:
       - name: checkout ci
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
 #          ref: ci
           path: ci
@@ -101,7 +101,7 @@ jobs:
           fi
 
       - name: checkout source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ steps.vars.outputs.build_ver }}
           path: go/src/${{ env.UPSTREAM }}
@@ -274,7 +274,7 @@ jobs:
     if: always()
     steps:
       - name: checkout ci
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ci
           path: ci
