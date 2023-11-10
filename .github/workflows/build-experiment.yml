@@ -217,7 +217,7 @@ jobs:
 
       - name: Setup Android SDK
         if: matrix.go_os == 'android'
-        uses: android-actions/setup-android@v2
+        uses: android-actions/setup-android@v3
 
       - name: build
         id: build
