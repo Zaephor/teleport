@@ -217,6 +217,7 @@ jobs:
 
       - name: build
         id: build
+        shell: bash
         env:
           GOPATH: ${{ steps.vars.outputs.pwd }}/go
         run: |
@@ -233,6 +234,8 @@ jobs:
           go get
 
           echo "::group::go env"
+          echo "PATH=$PATH"
+          echo "SHELL=$SHELL"
           go env
           echo "::endgroup::"
           for x in 'teleport' 'tsh' 'tctl' 'tbot'; do
