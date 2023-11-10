@@ -59,247 +59,252 @@ jobs:
 #          # ^ Not ideal hardcoding...
 
     steps:
-    - name: checkout ci
-      uses: actions/checkout@v4
-      with:
-        ref: ci
-        path: ci
-        fetch-depth: 1
-        token: ${{ secrets.GH_PAT }}
+      - name: Set Node.js 20.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 20.x
 
-    - name: vars
-      id: vars_ci
-      run: |
-        echo "LATEST=$(cat ci/LATEST)" >> $GITHUB_OUTPUT
-        if [[ -n "${{ github.event.inputs.tp_version }}" ]]; then
-                echo "REF=${{ github.event.inputs.tp_version }}" >> $GITHUB_OUTPUT
-        else
-                echo "REF=$(tail -n1 ci/VERSIONS)" >> $GITHUB_OUTPUT
-        fi
+      - name: checkout ci
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          path: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
 
-    - name: checkout source
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ steps.vars_ci.outputs.REF }}
-        path: go/src/${{ env.UPSTREAM }}
-        fetch-depth: 1
-        token: ${{ secrets.GH_PAT }}
-
-    - uses: nttld/setup-ndk@v1
-      if: matrix.go_os == 'android'
-      id: setup-ndk
-      with:
-        ndk-version: r25b
-    - name: debug
-      if: matrix.go_os == 'android'
-      run: |
-        echo ${{ steps.setup-ndk.outputs.ndk-path }}
-        echo ${PATH}
-        find ${{ steps.setup-ndk.outputs.ndk-path }} -type f | grep aarch64-linux | sort
-
-    - name: install arch deps
-      run: |
-        if [[ -n "${{ matrix.go_arch }}" ]]; then sudo apt-get update ; fi
-        if [[ "${{ matrix.go_arch }}" == "386" ]]; then sudo apt-get -f -y install gcc-multilib libc6-dev-i386 ; fi
-        if [[ "${{ matrix.go_arch }}" == "arm64" ]]; then sudo apt-get -f -y install gcc-aarch64-linux-gnu libc6-arm64-cross libc6-dev-arm64-cross ; fi
-        if [[ "${{ matrix.go_arch }}" == "arm" && "${{ matrix.name }}" == "armhf" ]]; then sudo dpkg --add-architecture armhf ; sudo apt-get -f -y install gcc-arm-linux-gnueabihf libc6-armhf-cross libc6-dev-armhf-cross libc6-armhf-cross libc6-dev-armhf-cross ; fi
-        if [[ "${{ matrix.go_arch }}" == "arm" && "${{ matrix.name }}" == "armel" ]]; then
-          sudo dpkg --add-architecture armel
-          sudo apt-get -f -y install gcc-arm-linux-gnueabi libc6-armel-cross libc6-dev-armel-cross libc6-armel-cross libc6-dev-armel-cross
-          sudo ln -s "$(which arm-linux-gnueabi-gcc)" "$(dirname $(which arm-linux-gnueabi-gcc))/arm-linux-gnueabihf-gcc"
-        fi
-        if [[ -n "${{ matrix.cargo_target }}" ]]; then
-          rustup target add ${{ matrix.cargo_target }}
-        else
-          rustup self uninstall -y
-        fi
-        if [[ "${{ matrix.go_os }}" == "linux" ]]; then sudo apt-get -f -y install libpam0g-dev ; fi
-        if [[ "${{ matrix.go_arch }}" == "arm64" && "${{ matrix.go_os }}" == "android" ]]; then sudo apt-get -f -y install libc6-dev:amd64 ; fi
-
-    - name: vars
-      id: vars
-      run: |
-        VERSION=$(awk -F '=' '/^VERSION=/{print $NF}' go/src/${{ env.UPSTREAM }}/Makefile)
-        if [[ "v${VERSION}" != "${{ steps.vars_ci.outputs.REF }}" ]]; then
-                echo "=error =Makefile and tag didn't match (${VERSION} != ${{ steps.vars_ci.outputs.REF }})"
-                exit 1
-        fi
-        echo "pkg_ver=${VERSION}" >> $GITHUB_OUTPUT
-        GO_VERSION=""
-        if [[ -z "${GO_VERSION}" && -n "${{ github.event.inputs.go_version }}" ]]; then
-                GO_VERSION="${{ github.event.inputs.go_version }}"
-        fi
-        if [[ -z "${GO_VERSION}" ]]; then
-                MAJOR=$(echo "${{ steps.vars_ci.outputs.REF }}" | cut -d '.' -f1)
-                MINOR=$(echo "${{ steps.vars_ci.outputs.REF }}" | cut -d '.' -f2)
-                OVERRIDE=$(grep "^${MAJOR}.${MINOR}," ci/golang.override | cut -d ',' -f2)
-                if [[ -n "${OVERRIDE}" ]]; then
-                        GO_VERSION="${OVERRIDE}"
-                fi
-                
-        fi
-        if [[ -z "${GO_VERSION}" && -e "go/src/${{ env.UPSTREAM }}/go.mod" ]]; then
-                GO_VERSION="$(awk '/^go /{print $NF}' go/src/${{ env.UPSTREAM }}/go.mod)"
-        fi
-        if [[ -z "${GO_VERSION}" ]]; then
-                MAJOR=$(echo "${{ steps.vars_ci.outputs.REF }}" | cut -d '.' -f1)
-                OVERRIDE=$(grep "^${MAJOR}," ci/golang.override | cut -d ',' -f2)
-                if [[ -n "${OVERRIDE}" ]]; then
-                        GO_VERSION="${OVERRIDE}"
-                fi
-        fi
-        echo "go_version=${GO_VERSION:-1.16}" >> $GITHUB_OUTPUT
-
-    - uses: actions/setup-go@v4
-      with:
-        go-version: '${{ steps.vars.outputs.go_version }}'
-
-    - name: make tar.gz
-      id: make
-      env:
-        GOARCH: ${{ matrix.go_arch }}
-        GOARM: ${{ matrix.go_arm }}
-        GOOS: ${{ matrix.go_os }}
-        GOPATH: /home/runner/work/teleport/teleport/go
-#        CC: ${{ matrix.cc }}
-#        CXX: ${{ matrix.cxx }}
-#        AR: ${{ matrix.ar }}
-#        CFLAGS: ${{ matrix.cflags }}
-      run: |
-        if [[ -n "${{ matrix.cc }}" ]]; then export CC="${{ matrix.cc }}" ; fi
-        if [[ -n "${{ matrix.cxx }}" ]]; then export CXX="${{ matrix.cxx }}" ; fi
-        if [[ -n "${{ matrix.ar }}" ]]; then export AR="${{ matrix.ar }}" ; fi
-        if [[ -n "${{ matrix.cflags }}" ]]; then export CFLAGS="${{ matrix.cflags }}" ; fi
-        mkdir artifacts
-        cd go/src/${{ env.UPSTREAM }}
-        if [[ -n "${CC}${CXX}" || "${GOHOSTARCH}" != "${GOARCH}" ]]; then export CGO_ENABLED=1 ; fi
-        go env
-        make release
-
-        BUNDLE=$(ls -1 | grep 'teleport-.*\(zip\|tar.gz\)')
-        NEW_BUNDLE="teleport-${{ steps.vars_ci.outputs.REF }}-${{ env.GOOS }}-${{ matrix.name }}.tar.gz"
-        mv ${BUNDLE} ${GITHUB_WORKSPACE}/artifacts/${NEW_BUNDLE}
-        echo "artifact=artifacts/${NEW_BUNDLE}" >> $GITHUB_OUTPUT
-
-    - name: package
-      env:
-        GOPATH: /home/runner/work/teleport/teleport/go
-      run: |
-        mkdir bin
-        wget -q https://github.com/goreleaser/nfpm/releases/download/v2.6.0/nfpm_2.6.0_Linux_x86_64.tar.gz -O /tmp/nfpm.tar.gz
-        tar -xvf /tmp/nfpm.tar.gz -C bin nfpm
-        chmod +x bin/nfpm
-        mkdir tmp
-        if tar tf ${{ steps.make.outputs.artifact }} | grep -x teleport/tbot >/dev/null; then
-          sed -e 's#%VERSION%#${{ steps.vars_ci.outputs.REF }}#g' -e 's#%ARCH%#${{ matrix.name }}#g' ci/nfpm-tbot.yaml > nfpm.yaml
-          tar -xvf ${{ steps.make.outputs.artifact }} -C tmp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh teleport/tbot
-        else
-          sed -e 's#%VERSION%#${{ steps.vars_ci.outputs.REF }}#g' -e 's#%ARCH%#${{ matrix.name }}#g' ci/nfpm.yaml > nfpm.yaml
-          tar -xvf ${{ steps.make.outputs.artifact }} -C tmp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
-        fi
-        ./bin/nfpm package -f nfpm.yaml -p deb -t ${GITHUB_WORKSPACE}/artifacts/
-        ./bin/nfpm package -f nfpm.yaml -p rpm -t ${GITHUB_WORKSPACE}/artifacts/
-        
-
-    - name: artifacts list
-      run: |
-        find artifacts
-
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ steps.vars_ci.outputs.REF }}
-        files: |
-          artifacts/*
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  docker:
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: always()
-    steps:
-    - name: checkout ci
-      uses: actions/checkout@v4
-      with:
-        ref: ci
-        path: ci
-        fetch-depth: 1
-        token: ${{ secrets.GH_PAT }}
-
-    - name: vars
-      id: vars_ci
-      run: |
-        echo "LATEST=$(cat ci/LATEST)" >> $GITHUB_OUTPUT
-        if [[ -n "${{ github.event.inputs.tp_version }}" ]]; then
-                INPUT="${{ github.event.inputs.tp_version }}"
-        else
-                INPUT=$(tail -n1 ci/VERSIONS)
-        fi
-        echo "REF=${INPUT}" >> $GITHUB_OUTPUT
-        if [[ "$(cat ci/LATEST)" == "${INPUT}" ]]; then
-                echo "TAG=latest" >> $GITHUB_OUTPUT
-        else
-                echo "TAG=dev" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-
-    - name: Log in to ghcr
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Log in to docker hub
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - name: Extract metadata (tags, labels) for Docker
-      id: meta
-      uses: docker/metadata-action@v4
-      with:
-        images: draconrose/teleport,ghcr.io/${{ github.repository_owner	 }}/teleport
-        flavor: |
-          latest=false
-        tags: |
-          type=semver,pattern=v{{major}}.{{minor}}.{{patch}},value=${{ steps.vars_ci.outputs.REF }}
-          type=semver,pattern=v{{major}}.{{minor}},value=${{ steps.vars_ci.outputs.REF }}
-          type=semver,pattern=v{{major}},value=${{ steps.vars_ci.outputs.REF }}
-          type=raw,${{ steps.vars_ci.outputs.TAG }}
-
-    - name: Identify platforms
-      id: plat
-      run: |
-        ARCHES=""
-        for arch in 'amd64,amd64' 'armhf,arm/v7' 'arm64,arm64/v8'; do
-          EXISTS=$(curl --silent --head https://github.com/Zaephor/teleport/releases/download/${{ steps.vars_ci.outputs.REF }}/teleport-${{ steps.vars_ci.outputs.REF }}-linux-${arch%,*}.tar.gz | awk '/^HTTP/{print $2}')
-          if [[ -n "${EXISTS}" && "${EXISTS}" != "40"* ]]; then
-            if [[ -n "${ARCHES}" ]]; then
-                ARCHES+=","
-            fi
-            ARCHES+="linux/${arch#*,}"
+      - name: vars
+        id: vars_ci
+        run: |
+          echo "LATEST=$(cat ci/LATEST)" >> $GITHUB_OUTPUT
+          if [[ -n "${{ github.event.inputs.tp_version }}" ]]; then
+                  echo "REF=${{ github.event.inputs.tp_version }}" >> $GITHUB_OUTPUT
+          else
+                  echo "REF=$(tail -n1 ci/VERSIONS)" >> $GITHUB_OUTPUT
           fi
-        done
-        echo "ARCHES=${ARCHES}"
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: ci
-        platforms: ${{ steps.plat.outputs.ARCHES }}
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        build-args:
-          RELEASE=${{ steps.vars_ci.outputs.REF }}
+      - name: checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.vars_ci.outputs.REF }}
+          path: go/src/${{ env.UPSTREAM }}
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - uses: nttld/setup-ndk@v1
+        if: matrix.go_os == 'android'
+        id: setup-ndk
+        with:
+          ndk-version: r25b
+      - name: debug
+        if: matrix.go_os == 'android'
+        run: |
+          echo ${{ steps.setup-ndk.outputs.ndk-path }}
+          echo ${PATH}
+          find ${{ steps.setup-ndk.outputs.ndk-path }} -type f | grep aarch64-linux | sort
+
+      - name: install arch deps
+        run: |
+          if [[ -n "${{ matrix.go_arch }}" ]]; then sudo apt-get update ; fi
+          if [[ "${{ matrix.go_arch }}" == "386" ]]; then sudo apt-get -f -y install gcc-multilib libc6-dev-i386 ; fi
+          if [[ "${{ matrix.go_arch }}" == "arm64" ]]; then sudo apt-get -f -y install gcc-aarch64-linux-gnu libc6-arm64-cross libc6-dev-arm64-cross ; fi
+          if [[ "${{ matrix.go_arch }}" == "arm" && "${{ matrix.name }}" == "armhf" ]]; then sudo dpkg --add-architecture armhf ; sudo apt-get -f -y install gcc-arm-linux-gnueabihf libc6-armhf-cross libc6-dev-armhf-cross libc6-armhf-cross libc6-dev-armhf-cross ; fi
+          if [[ "${{ matrix.go_arch }}" == "arm" && "${{ matrix.name }}" == "armel" ]]; then
+            sudo dpkg --add-architecture armel
+            sudo apt-get -f -y install gcc-arm-linux-gnueabi libc6-armel-cross libc6-dev-armel-cross libc6-armel-cross libc6-dev-armel-cross
+            sudo ln -s "$(which arm-linux-gnueabi-gcc)" "$(dirname $(which arm-linux-gnueabi-gcc))/arm-linux-gnueabihf-gcc"
+          fi
+          if [[ -n "${{ matrix.cargo_target }}" ]]; then
+            rustup target add ${{ matrix.cargo_target }}
+          else
+            rustup self uninstall -y
+          fi
+          if [[ "${{ matrix.go_os }}" == "linux" ]]; then sudo apt-get -f -y install libpam0g-dev ; fi
+          if [[ "${{ matrix.go_arch }}" == "arm64" && "${{ matrix.go_os }}" == "android" ]]; then sudo apt-get -f -y install libc6-dev:amd64 ; fi
+
+      - name: vars
+        id: vars
+        run: |
+          VERSION=$(awk -F '=' '/^VERSION=/{print $NF}' go/src/${{ env.UPSTREAM }}/Makefile)
+          if [[ "v${VERSION}" != "${{ steps.vars_ci.outputs.REF }}" ]]; then
+                  echo "=error =Makefile and tag didn't match (${VERSION} != ${{ steps.vars_ci.outputs.REF }})"
+                  exit 1
+          fi
+          echo "pkg_ver=${VERSION}" >> $GITHUB_OUTPUT
+          GO_VERSION=""
+          if [[ -z "${GO_VERSION}" && -n "${{ github.event.inputs.go_version }}" ]]; then
+                  GO_VERSION="${{ github.event.inputs.go_version }}"
+          fi
+          if [[ -z "${GO_VERSION}" ]]; then
+                  MAJOR=$(echo "${{ steps.vars_ci.outputs.REF }}" | cut -d '.' -f1)
+                  MINOR=$(echo "${{ steps.vars_ci.outputs.REF }}" | cut -d '.' -f2)
+                  OVERRIDE=$(grep "^${MAJOR}.${MINOR}," ci/golang.override | cut -d ',' -f2)
+                  if [[ -n "${OVERRIDE}" ]]; then
+                          GO_VERSION="${OVERRIDE}"
+                  fi
+                  
+          fi
+          if [[ -z "${GO_VERSION}" && -e "go/src/${{ env.UPSTREAM }}/go.mod" ]]; then
+                  GO_VERSION="$(awk '/^go /{print $NF}' go/src/${{ env.UPSTREAM }}/go.mod)"
+          fi
+          if [[ -z "${GO_VERSION}" ]]; then
+                  MAJOR=$(echo "${{ steps.vars_ci.outputs.REF }}" | cut -d '.' -f1)
+                  OVERRIDE=$(grep "^${MAJOR}," ci/golang.override | cut -d ',' -f2)
+                  if [[ -n "${OVERRIDE}" ]]; then
+                          GO_VERSION="${OVERRIDE}"
+                  fi
+          fi
+          echo "go_version=${GO_VERSION:-1.16}" >> $GITHUB_OUTPUT
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '${{ steps.vars.outputs.go_version }}'
+
+      - name: make tar.gz
+        id: make
+        env:
+          GOARCH: ${{ matrix.go_arch }}
+          GOARM: ${{ matrix.go_arm }}
+          GOOS: ${{ matrix.go_os }}
+          GOPATH: /home/runner/work/teleport/teleport/go
+  #        CC: ${{ matrix.cc }}
+  #        CXX: ${{ matrix.cxx }}
+  #        AR: ${{ matrix.ar }}
+  #        CFLAGS: ${{ matrix.cflags }}
+        run: |
+          if [[ -n "${{ matrix.cc }}" ]]; then export CC="${{ matrix.cc }}" ; fi
+          if [[ -n "${{ matrix.cxx }}" ]]; then export CXX="${{ matrix.cxx }}" ; fi
+          if [[ -n "${{ matrix.ar }}" ]]; then export AR="${{ matrix.ar }}" ; fi
+          if [[ -n "${{ matrix.cflags }}" ]]; then export CFLAGS="${{ matrix.cflags }}" ; fi
+          mkdir artifacts
+          cd go/src/${{ env.UPSTREAM }}
+          if [[ -n "${CC}${CXX}" || "${GOHOSTARCH}" != "${GOARCH}" ]]; then export CGO_ENABLED=1 ; fi
+          go env
+          make release
+
+          BUNDLE=$(ls -1 | grep 'teleport-.*\(zip\|tar.gz\)')
+          NEW_BUNDLE="teleport-${{ steps.vars_ci.outputs.REF }}-${{ env.GOOS }}-${{ matrix.name }}.tar.gz"
+          mv ${BUNDLE} ${GITHUB_WORKSPACE}/artifacts/${NEW_BUNDLE}
+          echo "artifact=artifacts/${NEW_BUNDLE}" >> $GITHUB_OUTPUT
+
+      - name: package
+        env:
+          GOPATH: /home/runner/work/teleport/teleport/go
+        run: |
+          mkdir bin
+          wget -q https://github.com/goreleaser/nfpm/releases/download/v2.6.0/nfpm_2.6.0_Linux_x86_64.tar.gz -O /tmp/nfpm.tar.gz
+          tar -xvf /tmp/nfpm.tar.gz -C bin nfpm
+          chmod +x bin/nfpm
+          mkdir tmp
+          if tar tf ${{ steps.make.outputs.artifact }} | grep -x teleport/tbot >/dev/null; then
+            sed -e 's#%VERSION%#${{ steps.vars_ci.outputs.REF }}#g' -e 's#%ARCH%#${{ matrix.name }}#g' ci/nfpm-tbot.yaml > nfpm.yaml
+            tar -xvf ${{ steps.make.outputs.artifact }} -C tmp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh teleport/tbot
+          else
+            sed -e 's#%VERSION%#${{ steps.vars_ci.outputs.REF }}#g' -e 's#%ARCH%#${{ matrix.name }}#g' ci/nfpm.yaml > nfpm.yaml
+            tar -xvf ${{ steps.make.outputs.artifact }} -C tmp --strip-components=1 teleport/teleport teleport/tctl teleport/tsh
+          fi
+          ./bin/nfpm package -f nfpm.yaml -p deb -t ${GITHUB_WORKSPACE}/artifacts/
+          ./bin/nfpm package -f nfpm.yaml -p rpm -t ${GITHUB_WORKSPACE}/artifacts/
+          
+
+      - name: artifacts list
+        run: |
+          find artifacts
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.vars_ci.outputs.REF }}
+          files: |
+            artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    docker:
+      runs-on: ubuntu-latest
+      needs: [build]
+      if: always()
+      steps:
+      - name: checkout ci
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          path: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: vars
+        id: vars_ci
+        run: |
+          echo "LATEST=$(cat ci/LATEST)" >> $GITHUB_OUTPUT
+          if [[ -n "${{ github.event.inputs.tp_version }}" ]]; then
+                  INPUT="${{ github.event.inputs.tp_version }}"
+          else
+                  INPUT=$(tail -n1 ci/VERSIONS)
+          fi
+          echo "REF=${INPUT}" >> $GITHUB_OUTPUT
+          if [[ "$(cat ci/LATEST)" == "${INPUT}" ]]; then
+                  echo "TAG=latest" >> $GITHUB_OUTPUT
+          else
+                  echo "TAG=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to ghcr
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to docker hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: draconrose/teleport,ghcr.io/${{ github.repository_owner	 }}/teleport
+          flavor: |
+            latest=false
+          tags: |
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}},value=${{ steps.vars_ci.outputs.REF }}
+            type=semver,pattern=v{{major}}.{{minor}},value=${{ steps.vars_ci.outputs.REF }}
+            type=semver,pattern=v{{major}},value=${{ steps.vars_ci.outputs.REF }}
+            type=raw,${{ steps.vars_ci.outputs.TAG }}
+
+      - name: Identify platforms
+        id: plat
+        run: |
+          ARCHES=""
+          for arch in 'amd64,amd64' 'armhf,arm/v7' 'arm64,arm64/v8'; do
+            EXISTS=$(curl --silent --head https://github.com/Zaephor/teleport/releases/download/${{ steps.vars_ci.outputs.REF }}/teleport-${{ steps.vars_ci.outputs.REF }}-linux-${arch%,*}.tar.gz | awk '/^HTTP/{print $2}')
+            if [[ -n "${EXISTS}" && "${EXISTS}" != "40"* ]]; then
+              if [[ -n "${ARCHES}" ]]; then
+                  ARCHES+=","
+              fi
+              ARCHES+="linux/${arch#*,}"
+            fi
+          done
+          echo "ARCHES=${ARCHES}"
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ci
+          platforms: ${{ steps.plat.outputs.ARCHES }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args:
+            RELEASE=${{ steps.vars_ci.outputs.REF }}
 

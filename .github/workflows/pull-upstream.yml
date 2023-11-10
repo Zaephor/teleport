@@ -14,48 +14,53 @@ jobs:
       fail-fast: true
 
     steps:
-    - name: checkout ci
-      uses: actions/checkout@v4
-      with:
-        ref: ci
-        fetch-depth: 1
-        token: ${{ secrets.GH_PAT }}
+      - name: Set Node.js 20.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 20.x
 
-    - name: Identify upstream branches
-      id: upstream
-      run: |
-        echo "branches=$(git ls-remote --heads ${{ env.REPO_UPSTREAM }} | awk -F '/' '/refs\/heads\/branch/ && !/-/{$0=$NF;print}' | sort -V | tr '\n' ',')" >> $GITHUB_OUTPUT
+      - name: checkout ci
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
 
-    - name: Sync upstream branches
-      run: |
-        git remote add upstream ${{ env.REPO_UPSTREAM }}
-        for upstream_branch in $(echo "${{ steps.upstream.outputs.branches }}" | tr ',' '\n'); do
-          own_branch=$(echo "source-v${upstream_branch/v/}")
-          echo "::group::Updating branch ${own_branch}"
+      - name: Identify upstream branches
+        id: upstream
+        run: |
+          echo "branches=$(git ls-remote --heads ${{ env.REPO_UPSTREAM }} | awk -F '/' '/refs\/heads\/branch/ && !/-/{$0=$NF;print}' | sort -V | tr '\n' ',')" >> $GITHUB_OUTPUT
 
-          git fetch upstream refs/heads/branch/${upstream_branch}:${own_branch}
-          git checkout ${own_branch}
+      - name: Sync upstream branches
+        run: |
+          git remote add upstream ${{ env.REPO_UPSTREAM }}
+          for upstream_branch in $(echo "${{ steps.upstream.outputs.branches }}" | tr ',' '\n'); do
+            own_branch=$(echo "source-v${upstream_branch/v/}")
+            echo "::group::Updating branch ${own_branch}"
 
-          git tag -l | grep -v "^v${upstream_branch/v/}" | xargs git tag -d
-          git tag -l | awk '!/^v/ || /-/ || /\^/{print}' | xargs git tag -d
+            git fetch upstream refs/heads/branch/${upstream_branch}:${own_branch}
+            git checkout ${own_branch}
 
-          git push origin ${own_branch}
-          git push origin ${own_branch} --tags
-          echo "::endgroup::"
-          sleep 1s
-        done
-        git checkout ci
+            git tag -l | grep -v "^v${upstream_branch/v/}" | xargs git tag -d
+            git tag -l | awk '!/^v/ || /-/ || /\^/{print}' | xargs git tag -d
 
-    - name: Identify LATEST
-      run: |
-        git ls-remote --tags ${{ env.REPO_UPSTREAM }} | ${{ env.AWK_FILTER_TAG }} | sort -Vru | head -n 1 > LATEST
-        comm --nocheck-order -23 <(git ls-remote --tags https://github.com/${{ github.repository }} | ${{ env.AWK_FILTER_TAG }} | sort -Vu) <(sort -Vu VERSIONS) | head -n 1 >> VERSIONS
-        if ! git diff-index --quiet HEAD --; then
-          echo "IF result: $?"
-          git status
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add LATEST VERSIONS
-          git commit -m "ci: Bump LATEST($(cat LATEST)) and VERSIONS($(tail -n 1 VERSIONS))" || true
-          git push origin ci --quiet || true
-        fi
+            git push origin ${own_branch}
+            git push origin ${own_branch} --tags
+            echo "::endgroup::"
+            sleep 1s
+          done
+          git checkout ci
+
+      - name: Identify LATEST
+        run: |
+          git ls-remote --tags ${{ env.REPO_UPSTREAM }} | ${{ env.AWK_FILTER_TAG }} | sort -Vru | head -n 1 > LATEST
+          comm --nocheck-order -23 <(git ls-remote --tags https://github.com/${{ github.repository }} | ${{ env.AWK_FILTER_TAG }} | sort -Vu) <(sort -Vu VERSIONS) | head -n 1 >> VERSIONS
+          if ! git diff-index --quiet HEAD --; then
+            echo "IF result: $?"
+            git status
+            git config user.name github-actions
+            git config user.email github-actions@github.com
+            git add LATEST VERSIONS
+            git commit -m "ci: Bump LATEST($(cat LATEST)) and VERSIONS($(tail -n 1 VERSIONS))" || true
+            git push origin ci --quiet || true
+          fi
