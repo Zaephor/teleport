@@ -60,7 +60,7 @@ jobs:
 
     steps:
       - name: checkout ci
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ci
           path: ci
@@ -78,7 +78,7 @@ jobs:
           fi
 
       - name: checkout source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ steps.vars_ci.outputs.REF }}
           path: go/src/${{ env.UPSTREAM }}
