@@ -109,7 +109,7 @@ jobs:
           find .
           echo "::endgroup::"
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         id: setup-go
         with:
           go-version-file: 'go/src/${{ env.UPSTREAM }}/go.mod'

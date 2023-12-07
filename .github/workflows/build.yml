@@ -150,7 +150,7 @@ jobs:
           fi
           echo "go_version=${GO_VERSION:-1.16}" >> $GITHUB_OUTPUT
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: '${{ steps.vars.outputs.go_version }}'
 
