@@ -227,7 +227,7 @@ jobs:
           cd "${{ steps.vars.outputs.pwd }}/dist"
           tar czf teleport-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}.tar.gz teleport/
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: github.event_name != 'pull_request'
         with:
           name: ${{ github.event.repository.name }}-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}
