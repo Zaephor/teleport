@@ -73,7 +73,7 @@ jobs:
 #            build_os: windows-latest
     steps:
       - name: checkout ci
-        uses: actions/checkout@v3
+        uses: actions/checkout@main
         with:
           path: ci
           fetch-depth: 1
@@ -83,7 +83,7 @@ jobs:
         id: vars
         run: |
           echo "pwd=$PWD" | tee -a ${GITHUB_OUTPUT}
-          export RECENT=$(echo "ver_recent=$(tail -n1 ci/VERSIONS)" | tee -a ${GITHUB_OUTPUT})
+          export RECENT=$(echo "ver_recent=$(grep -v '^#' ci/VERSIONS | tail -n1)" | tee -a ${GITHUB_OUTPUT})
           export LATEST=$(echo "ver_latest=$(cat ci/LATEST)" | tee -a ${GITHUB_OUTPUT})
           if [ -n "${{ github.event.inputs.tp_version }}" ]; then
             echo "build_ver=${{ github.event.inputs.tp_version }}" | tee -a ${GITHUB_OUTPUT}
@@ -92,7 +92,7 @@ jobs:
           fi
 
       - name: checkout source
-        uses: actions/checkout@v3
+        uses: actions/checkout@main
         with:
           ref: ${{ steps.vars.outputs.build_ver }}
           path: go/src/${{ env.UPSTREAM }}
@@ -109,7 +109,7 @@ jobs:
           find .
           echo "::endgroup::"
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@main
         id: setup-go
         with:
           go-version-file: 'go/src/${{ env.UPSTREAM }}/go.mod'
@@ -227,7 +227,7 @@ jobs:
           cd "${{ steps.vars.outputs.pwd }}/dist"
           tar czf teleport-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}.tar.gz teleport/
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@main
         if: github.event_name != 'pull_request'
         with:
           name: ${{ github.event.repository.name }}-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}
@@ -250,7 +250,7 @@ jobs:
     if: always() && github.event_name != 'pull_request'
     steps:
       - name: checkout ci
-        uses: actions/checkout@v4
+        uses: actions/checkout@main
         with:
           ref: ci
           path: ci
@@ -277,7 +277,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@master
 
       - name: Log in to ghcr
         if: github.event_name != 'pull_request'
@@ -296,7 +296,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@master
         with:
           images: draconrose/teleport,ghcr.io/${{ github.repository_owner  }}/teleport
           flavor: |
