@@ -32,7 +32,7 @@ fi
 if [[ "${GO_ARCH}" == "arm64" ]]; then
 	sudo apt-get -f -y install libc6-arm64-cross libc6-dev-arm64-cross
 fi
-if [[ "${GO_ARCH}" == "arm"]]; then
+if [[ "${GO_ARCH}" == "arm" ]]; then
 	if [[ "${GO_ARM}" == "6" ]]; then
 		sudo dpkg --add-architecture armhf
 		sudo apt-get -f -y install libc6-armhf-cross libc6-dev-armhf-cross libc6-armhf-cross libc6-dev-armhf-cross
