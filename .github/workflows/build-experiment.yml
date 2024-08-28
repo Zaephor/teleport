@@ -72,6 +72,31 @@ jobs:
 #            go_arch: amd64
 #            build_os: windows-latest
     steps:
+      - name: trusty-prep
+        if: matrix.container_image == 'ubuntu:14.04'
+        shell: bash
+        run: |
+          echo "::group::Get deps"
+          sudo apt-get update
+          sudo apt-get -y install curl wget git build-essential zlib1g zlib1g-dev
+          echo "::endgroup::"
+          echo "::group::Get pyenv"
+          curl https://pyenv.run | bash
+          echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
+          echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
+          echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+          echo "::endgroup::"
+          echo "::group::Get nvm"
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+          echo "::endgroup::"
+          source ~/.bashrc
+          echo "::group::Install latest python3"
+          pyenv install 3
+          echo "::endgroup::"
+          echo "::group::Install node lts"
+          nvm install -s node
+          echo "::endgroup::"
+
       - name: checkout ci
         uses: actions/checkout@main
         with:
