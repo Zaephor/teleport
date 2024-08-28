@@ -149,7 +149,7 @@ jobs:
           REF_NAME: ${{ matrix.name }}
           GO_ARCH: ${{ matrix.go_arch }}
           GO_ARM: ${{ matrix.go_arm || '0' }}
-        run: bash prep.sh
+        run: bash ci/prep.sh
 
       - name: build
         id: build
@@ -164,7 +164,7 @@ jobs:
           UPSTREAM: ${{ env.UPSTREAM }}
           REF_PWD: ${{ steps.vars.outputs.pwd }}
           REF_VER: ${{ steps.vars.outputs.build_ver }}
-        run: bash build.sh
+        run: bash ci/build.sh
 
       - name: tar
         run: |
