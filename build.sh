@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "=== Build"
 export PATH="/usr/lib/binutils-2.26/bin:$PATH"
 export GOOS=${GO_OS}
 export GOARCH=${GO_ARCH}

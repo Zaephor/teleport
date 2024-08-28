@@ -116,29 +116,20 @@ jobs:
           cache-dependency-path: 'go/src/${{ env.UPSTREAM }}/go.sum'
           check-latest: true
 
-      - name: prep
+      - name: prep && build
         env:
+          CC: ${{ matrix.cc }}
           ENV_OS: ${{ matrix.build_os || 'ubuntu-latest' }}
-          REF_PWD: ${{ steps.vars.outputs.pwd }}
-          REF_NAME: ${{ matrix.name }}
-          GO_ARCH: ${{ matrix.go_arch }}
-          GO_ARM: ${{ matrix.go_arm || '0' }}
-        run: bash ci/prep.sh
-
-      - name: build
-        id: build
-        shell: bash
-        env:
           GOPATH: ${{ steps.vars.outputs.pwd }}/go
-          GO_OS: ${{ matrix.go_os }}
           GO_ARCH: ${{ matrix.go_arch }}
           GO_ARM: ${{ matrix.go_arm || null }}
           GO_EXPERIMENT: ${{ matrix.go_experiment }}
-          CC: ${{ matrix.cc }}
-          UPSTREAM: ${{ env.UPSTREAM }}
+          GO_OS: ${{ matrix.go_os }}
+          REF_NAME: ${{ matrix.name }}
           REF_PWD: ${{ steps.vars.outputs.pwd }}
           REF_VER: ${{ steps.vars.outputs.build_ver }}
-        run: bash ci/build.sh
+          UPSTREAM: ${{ env.UPSTREAM }}
+        run: bash ci/prep.sh && bash ci/build.sh
 
       - name: tar
         run: |

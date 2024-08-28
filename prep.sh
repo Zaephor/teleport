@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "== Prep"
 if [[ ! -e /usr/bin/sudo ]]; then
 	echo "::group::sudo lazy shim"
 	echo "SHELL - $SHELL"
