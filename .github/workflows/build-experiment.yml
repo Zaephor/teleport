@@ -78,7 +78,7 @@ jobs:
         run: |
           echo "::group::Get deps"
           sudo apt-get update
-          sudo apt-get -y install curl wget git build-essential zlib1g zlib1g-dev libssl-dev libncurses5-dev bzip2 libffi-dev libffi6
+          sudo apt-get -y install curl wget git build-essential zlib1g zlib1g-dev libssl-dev libncurses5-dev bzip2 libffi-dev libffi6 lzma-dev libbz2-dev libreadline-dev libsqlite3-dev
           echo "::endgroup::"
           echo "::group::Get pyenv"
           curl https://pyenv.run | bash
@@ -91,7 +91,7 @@ jobs:
           echo "::endgroup::"
           source ~/.bashrc
           echo "::group::Install latest python3"
-          CPPFLAGS="-I/usr/include/openssl" LDFLAGS="-L/usr/lib" pyenv install 3
+          CPPFLAGS="-I/usr/include/openssl" LDFLAGS="-L/usr/lib" pyenv install 3.6
           echo "::endgroup::"
           echo "::group::Install node lts"
           nvm install -s node
