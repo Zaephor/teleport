@@ -78,7 +78,7 @@ jobs:
         run: |
           echo "::group::Get deps"
           sudo apt-get update
-          sudo apt-get -y install curl wget git build-essential zlib1g zlib1g-dev
+          sudo apt-get -y install curl wget git build-essential zlib1g zlib1g-dev libssl-dev
           echo "::endgroup::"
           echo "::group::Get pyenv"
           curl https://pyenv.run | bash
