@@ -72,32 +72,6 @@ jobs:
 #            go_arch: amd64
 #            build_os: windows-latest
     steps:
-      - name: trusty-prep
-        if: matrix.container_image == 'ubuntu:14.04'
-        shell: bash
-        run: |
-          echo "::group::Get deps"
-          sudo apt-get update
-          sudo apt-get -y install curl wget git build-essential zlib1g zlib1g-dev libssl-dev libncurses5-dev bzip2 libffi-dev libffi6 lzma-dev libbz2-dev libreadline-dev libsqlite3-dev liblzma-dev liblz-dev
-          echo "::endgroup::"
-          echo "::group::Get pyenv"
-          curl https://pyenv.run | bash
-          echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
-          echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
-          echo 'eval "$(pyenv init -)"' >> ~/.bashrc
-          echo "::endgroup::"
-          echo "::group::Get nvm"
-          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-          echo "::endgroup::"
-          source ~/.bashrc
-          echo "::group::Install latest python3.6"
-          CPPFLAGS="-I/usr/include/openssl" LDFLAGS="-L/usr/lib" pyenv install 3.6
-          pyenv global 3.6
-          echo "::endgroup::"
-          echo "::group::Install node lts"
-          nvm install -s node
-          echo "::endgroup::"
-
       - name: checkout ci
         uses: actions/checkout@main
         with:
