@@ -27,11 +27,12 @@ echo "::group::go env"
 go env
 echo "::endgroup::"
 set -e
-for x in 'teleport' 'tsh' 'tctl' 'tbot'; do
+for x in 'tbot' 'tctl' 'tsh' 'teleport'; do
 	if [[ -d ./tool/$x ]]; then
 		echo "::group::Building ${x}"
 		if [[ "${GO_ARM:-}" == "5" ]]; then
-			go build -tags "pam" -ldflags="-s -w -extldflags=-fuse-ld=gold" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
+			#go build -tags "pam" -ldflags="-s -w -extldflags=-fuse-ld=gold" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
+			go build -tags "pam" -ldflags="-s -w -extldflags=-fuse-ld=lld" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
 		else
 			go build -tags "pam" -ldflags="-s -w" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
 		fi
