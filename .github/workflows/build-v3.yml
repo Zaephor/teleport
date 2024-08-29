@@ -81,7 +81,10 @@ jobs:
             echo '::endgroup::'
             echo '::group::install go${{ steps.go-ver.outputs.go_ver }}'
             export GOROOT_BOOTSTRAP=$GOROOT
+            set +e
             gvm install go${{ steps.go-ver.outputs.go_ver }}
+            if [ $? -ne 0 ]; then cat /github/workspace/gvm/logs/go-go${{ steps.go-ver.outputs.go_ver }}-compile.log ; exit 1 ; fi
+            set -e
             gvm use go${{ steps.go-ver.outputs.go_ver }} --default
             echo '::endgroup::'
             "
