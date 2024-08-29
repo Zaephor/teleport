@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 source /github/home/.gvm/scripts/gvm
 echo "=== Build"
 export PATH="/usr/lib/binutils-2.26/bin:$PATH"
@@ -29,6 +30,9 @@ for x in 'teleport' 'tsh' 'tctl' 'tbot'; do
 		echo "::group::Building ${x}"
 		go build -tags "pam" -ldflags="-s -w" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
 		echo "::endgroup::"
+		if [[ ! -e "${REF_PWD}/dist/teleport/${x}" ]]; then
+			exit 1
+		fi
 	fi
 done
 echo "${REF_VER}" > "${REF_PWD}/dist/teleport/VERSION"
