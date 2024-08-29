@@ -1,6 +1,6 @@
 #!/bin/bash
-set -e
 source /github/home/.gvm/scripts/gvm
+set -e
 echo "=== Build"
 export PATH="/usr/lib/binutils-2.26/bin:$PATH"
 export GOOS=${GO_OS}

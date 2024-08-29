@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 echo "== Prep"
 if [[ ! -e /usr/bin/sudo ]]; then
 	echo "::group::sudo lazy shim"
@@ -71,9 +70,10 @@ which ld
 echo "::endgroup::"
 
 echo "::group::Setup gvm"
-bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer) || true
+bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer)
 source /github/home/.gvm/scripts/gvm
 echo "::endgroup::"
+set -e
 echo "::group::Bootstrap go"
 gvm install go1.4 -B
 gvm use go1.4
