@@ -71,7 +71,7 @@ which ld
 echo "::endgroup::"
 
 echo "::group::Setup gvm"
-bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer)
+bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer) || true
 source /github/home/.gvm/scripts/gvm
 echo "::endgroup::"
 echo "::group::Bootstrap go"
