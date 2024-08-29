@@ -66,8 +66,8 @@ jobs:
             echo '::endgroup::'
             echo '::group::install gvm'
             wget https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer
-            bash gvm-installer master ${PWD}/.gvm
-            source ${PWD}/.gvm/scripts/gvm
+            bash gvm-installer master ${PWD}
+            source ${PWD}/gvm/scripts/gvm
             set -e
             echo '::endgroup::'
             echo '::group::install go1.4'
