@@ -1,5 +1,5 @@
 #!/bin/bash
-source /github/home/.gvm/scripts/gvm
+source ${PWD}/gvm/scripts/gvm
 gvm use go${GO_VERSION} --default
 echo "=== Build"
 export PATH="/usr/lib/binutils-2.26/bin:$PATH"

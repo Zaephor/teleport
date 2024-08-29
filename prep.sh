@@ -68,28 +68,3 @@ echo "::endgroup::"
 echo "::group::other"
 which ld
 echo "::endgroup::"
-
-echo "::group::Setup gvm"
-bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer)
-source /github/home/.gvm/scripts/gvm
-echo "::endgroup::"
-#set -e
-echo "::group::Bootstrap go"
-gvm install go1.4 -B
-gvm use go1.4
-for ver in "go1.17.13" "go${GO_VERSION}"; do
-	export GOROOT_BOOTSTRAP=$GOROOT
-	RETRY=5
-	while [ ${RETRY} -ge 0 ]; do
-		gvm install ${ver}
-		if [ $? -ne 0 ]; then
-			RETRY=$(( ${RETRY} - 1 ))
-			sleep $(( (6 - ${RETRY}) * 15 ))s
-		fi
-		if [[ ${RETRY} -le 0 ]]; then
-			exit 1
-		fi
-	done
-	gvm use ${ver} --default
-done
-echo "::endgroup::"

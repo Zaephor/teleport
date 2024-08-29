@@ -51,7 +51,7 @@ jobs:
         id: cache-go-trusty
         uses: actions/cache@v4
         with:
-          path: .gvm
+          path: gvm
           key: "gvm-${{ steps.go-ver.outputs.go_ver }}"
       - uses: docker://ubuntu:14.04
         with:
@@ -89,18 +89,178 @@ jobs:
         shell: bash
         run: |
           find .
-          exit 1
-
 
   build-linux:
     runs-on: ubuntu-latest
     needs: [build-go]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            go_os: linux
+            go_arch: amd64
+            container_image: 'ubuntu:14.04'
+            cargo_target: x86_64-unknown-linux-gnu
+          - name: linux-i386
+            go_os: linux
+            go_arch: 386
+            container_image: 'ubuntu:14.04'
+            cargo_target: i686-unknown-linux-gnu
+          - name: linux-arm64
+            go_os: linux
+            go_arch: arm64
+            cc: aarch64-linux-gnu-gcc
+            container_image: 'ubuntu:20.04'
+            cargo_target: aarch64-unknown-linux-gnu
+          - name: linux-armhf
+            go_os: linux
+            go_arch: arm
+            go_arm: 6
+            go_experiment: nounified
+            cc: arm-linux-gnueabihf-gcc
+            container_image: 'ubuntu:14.04'
+            cargo_target: arm-unknown-linux-gnueabihf
+          - name: linux-armel
+            go_os: linux
+            go_arch: arm
+            go_arm: 5
+            cc: arm-linux-gnueabi-gcc
+            container_image: 'ubuntu:14.04'
+
+#          - name: linux-mips
+#            go_os: linux
+#            go_arch: mips
+#            cc: mips-linux-gnu-gcc
+#            container_image: 'ubuntu:20.04'
+
+#          - name: darwin-amd64
+#            go_os: darwin
+#            go_arch: amd64
+#            build_os: macos-latest
+#          - name: darwin-arm64
+#            go_os: darwin
+#            go_arch: arm64
+#            build_os: macos-latest
+#          - name: windows-amd64
+#            go_os: windows
+#            go_arch: amd64
+#            build_os: windows-latest
     steps:
-      - id: debug
+      - name: checkout ci
+        uses: actions/checkout@main
+        with:
+          ref: ci
+          path: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+      - id: tp-ver
         shell: bash
         run: |
-          find .
-          exit 1
+          echo "pwd=$PWD" | tee -a ${GITHUB_OUTPUT}
+          export RECENT=$(echo "ver_recent=$(grep -v '^#' ci/VERSIONS | tail -n1)" | tee -a ${GITHUB_OUTPUT})
+          export LATEST=$(echo "ver_latest=$(cat ci/LATEST)" | tee -a ${GITHUB_OUTPUT})
+          if [ -n "${{ github.event.inputs.tp_version }}" ]; then
+            echo "build_ver=${{ github.event.inputs.tp_version }}" | tee -a ${GITHUB_OUTPUT}
+          else
+            echo "build_ver=${RECENT#*=}" | tee -a ${GITHUB_OUTPUT}
+          fi
+      - name: checkout source
+        uses: actions/checkout@main
+        with:
+          ref: ${{ steps.tp-ver.outputs.build_ver }}
+          path: go/src/${{ env.UPSTREAM }}
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+      - id: go-ver
+        shell: bash
+        run: |
+          GO_VER=$(awk '/^go /{print $NF}' "go/src/${{ env.UPSTREAM }}/go.mod")
+          echo "go_ver=${GO_VER}" | tee -a ${GITHUB_OUTPUT}
+      - name: Cache go-trusty
+        id: cache-go-trusty
+        uses: actions/cache@v4
+        with:
+          path: gvm
+          key: "gvm-${{ steps.go-ver.outputs.go_ver }}"
+      - id: cache-exit
+        shell: bash
+        run: |
+          if [[ "${{ steps.cache-go-trusty.outputs.cache-hit }}" != "true" ]]; then
+            echo "::error::GVM not found in cache" | tee -a ${GITHUB_OUTPUT}
+            exit 1
+          fi
+      - name: prep && build (ubuntu:14.04)
+        uses: docker://ubuntu:14.04
+        if: matrix.container_image == 'ubuntu:14.04'
+        with:
+          entrypoint: /bin/bash
+          args: |
+            -e -c "
+            source ${PWD}/gvm/scripts/gvm
+            bash ci/prep.sh
+            bash ci/build.sh
+            "
+        env:
+          CC: ${{ matrix.cc }}
+          ENV_OS: ${{ matrix.build_os || 'ubuntu-latest' }}
+          GOPATH: ${{ steps.tp-ver.outputs.pwd }}/go
+          GO_ARCH: ${{ matrix.go_arch }}
+          GO_ARM: ${{ matrix.go_arm || null }}
+          GO_EXPERIMENT: ${{ matrix.go_experiment }}
+          GO_OS: ${{ matrix.go_os }}
+          GO_VERSION: ${{ steps.go-ver.outputs.go_ver }}
+          REF_NAME: ${{ matrix.name }}
+          REF_PWD: ${{ steps.tp-ver.outputs.pwd }}
+          REF_VER: ${{ steps.tp-ver.outputs.build_ver }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+      - name: prep && build (ubuntu:20.04)
+        uses: docker://ubuntu:20.04
+        if: matrix.container_image == 'ubuntu:20.04'
+        with:
+          entrypoint: /bin/bash
+          args: |
+            -e -c "
+            source ${PWD}/gvm/scripts/gvm
+            bash ci/prep.sh
+            bash ci/build.sh
+            "
+        env:
+          CC: ${{ matrix.cc }}
+          ENV_OS: ${{ matrix.build_os || 'ubuntu-latest' }}
+          GOPATH: ${{ steps.tp-ver.outputs.pwd }}/go
+          GO_ARCH: ${{ matrix.go_arch }}
+          GO_ARM: ${{ matrix.go_arm || null }}
+          GO_EXPERIMENT: ${{ matrix.go_experiment }}
+          GO_OS: ${{ matrix.go_os }}
+          GO_VERSION: ${{ steps.go-ver.outputs.go_ver }}
+          REF_NAME: ${{ matrix.name }}
+          REF_PWD: ${{ steps.tp-ver.outputs.pwd }}
+          REF_VER: ${{ steps.tp-ver.outputs.build_ver }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+
+      - name: tar
+        run: |
+          sudo chown $(id -u):$(id -g) "${{ steps.vars.outputs.pwd }}/dist"
+          cd "${{ steps.vars.outputs.pwd }}/dist"
+          tar czf teleport-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}.tar.gz teleport/
+
+      - uses: actions/upload-artifact@main
+        if: github.event_name != 'pull_request'
+        with:
+          name: ${{ github.event.repository.name }}-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}
+          path: dist/
+          retention-days: 1
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: github.event_name != 'pull_request'
+        with:
+          tag_name: ${{ steps.vars.outputs.build_ver }}
+          files: |
+            dist/teleport-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   docker:
     runs-on: ubuntu-latest
     needs: [build-linux]
