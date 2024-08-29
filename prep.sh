@@ -77,10 +77,16 @@ set -e
 echo "::group::Bootstrap go"
 gvm install go1.4 -B
 gvm use go1.4
-export GOROOT_BOOTSTRAP=$GOROOT
-gvm install go1.17.13 --prefer-binary
-gvm use go1.17.13
-export GOROOT_BOOTSTRAP=$GOROOT
-gvm install go${GO_VERSION}
-gvm use go${GO_VERSION} --default
+for ver in "go1.17.13" "go${GO_VERSION}"; do
+	export GOROOT_BOOTSTRAP=$GOROOT
+	RETRY=5
+	while [ ${RETRY} -ge 0 ]; do
+		gvm install ${ver}
+		if [ $? -ne 0 ]; then
+			RETRY=$(( ${RETRY} - 1 ))
+			sleep $(( (6 - ${RETRY}) * 15 ))s
+		fi
+	done
+	gvm use ${ver} --default
+done
 echo "::endgroup::"
