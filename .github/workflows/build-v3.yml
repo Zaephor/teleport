@@ -59,7 +59,7 @@ jobs:
             sudo apt-get -f -y install curl wget git libpam0g-dev binutils bison gcc make binutils-multiarch build-essential bsdmainutils binutils-2.26
             echo '::endgroup::'
             echo '::group::install gvm'
-            bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer)
+            bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer) || true
             source /github/home/.gvm/scripts/gvm
             echo '::endgroup::'
             "
