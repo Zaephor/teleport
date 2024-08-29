@@ -47,11 +47,17 @@ jobs:
         run: |
           GO_VER=$(awk '/^go /{print $NF}' "go/src/${{ env.UPSTREAM }}/go.mod")
           echo "go_ver=${GO_VER}" | tee -a ${GITHUB_OUTPUT}
+      - name: Cache go-trusty
+        id: cache-go-trusty
+        uses: actions/cache@v4
+        with:
+          path: .gvm
+          key: "gvm-${{ steps.go-ver.outputs.go_ver }}"
       - uses: docker://ubuntu:14.04
         with:
           entrypoint: /bin/bash
           args: |
-            -e -c "
+            -c "
             echo '::group::apt-get update'
             sudo apt-get update
             echo '::endgroup::'
@@ -59,8 +65,24 @@ jobs:
             sudo apt-get -f -y install curl wget git libpam0g-dev binutils bison gcc make binutils-multiarch build-essential bsdmainutils binutils-2.26
             echo '::endgroup::'
             echo '::group::install gvm'
-            bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer) || true
-            source /github/home/.gvm/scripts/gvm
+            wget https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer
+            bash gvm-installer master ${PWD}/.gvm
+            source ${PWD}/.gvm/scripts/gvm
+            set -e
+            echo '::endgroup::'
+            echo '::group::install go1.4'
+            gvm install go1.4 -B
+            gvm use go1.4
+            echo '::endgroup::'
+            echo '::group::install go1.17.13'
+            export GOROOT_BOOTSTRAP=$GOROOT
+            gvm install go1.17.13
+            gvm use go1.17.13
+            echo '::endgroup::'
+            echo '::group::install go${{ steps.go-ver.outputs.go_ver }}'
+            export GOROOT_BOOTSTRAP=$GOROOT
+            gvm install go${{ steps.go-ver.outputs.go_ver }}
+            gvm use go${{ steps.go-ver.outputs.go_ver }} --default
             echo '::endgroup::'
             "
       - id: debug
