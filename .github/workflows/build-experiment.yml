@@ -158,6 +158,7 @@ jobs:
 
       - name: tar
         run: |
+          sudo chown $(id -u):$(id -g) "${{ steps.vars.outputs.pwd }}/dist"
           cd "${{ steps.vars.outputs.pwd }}/dist"
           tar czf teleport-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}.tar.gz teleport/
 

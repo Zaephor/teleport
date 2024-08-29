@@ -77,7 +77,7 @@ echo "::group::Bootstrap go"
 gvm install go1.4 -B
 gvm use go1.4
 export GOROOT_BOOTSTRAP=$GOROOT
-gvm install go1.17.13
+gvm install go1.17.13 --prefer-binary
 gvm use go1.17.13
 export GOROOT_BOOTSTRAP=$GOROOT
 gvm install go${GO_VERSION}
