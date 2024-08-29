@@ -25,18 +25,18 @@ jobs:
           - name: linux-amd64
             go_os: linux
             go_arch: amd64
-            container_image: 'docker://ubuntu:14.04'
+            container_image: 'ubuntu:14.04'
             cargo_target: x86_64-unknown-linux-gnu
           - name: linux-i386
             go_os: linux
             go_arch: 386
-            container_image: 'docker://ubuntu:14.04'
+            container_image: 'ubuntu:14.04'
             cargo_target: i686-unknown-linux-gnu
           - name: linux-arm64
             go_os: linux
             go_arch: arm64
             cc: aarch64-linux-gnu-gcc
-            container_image: 'docker://ubuntu:20.04'
+            container_image: 'ubuntu:20.04'
             cargo_target: aarch64-unknown-linux-gnu
           - name: linux-armhf
             go_os: linux
@@ -44,14 +44,14 @@ jobs:
             go_arm: 6
             go_experiment: nounified
             cc: arm-linux-gnueabihf-gcc
-            container_image: 'docker://ubuntu:14.04'
+            container_image: 'ubuntu:14.04'
             cargo_target: arm-unknown-linux-gnueabihf
           - name: linux-armel
             go_os: linux
             go_arch: arm
             go_arm: 5
             cc: arm-linux-gnueabi-gcc
-            container_image: 'docker://ubuntu:14.04'
+            container_image: 'ubuntu:14.04'
 
 #          - name: linux-mips
 #            go_os: linux
@@ -116,8 +116,9 @@ jobs:
           cache-dependency-path: 'go/src/${{ env.UPSTREAM }}/go.sum'
           check-latest: true
 
-      - name: prep && build
-        uses: ${{ matrix.container_image || null }}
+      - name: prep && build (ubuntu:14.04)
+        uses: docker://ubuntu:14.04
+        if: matrix.container_image == 'ubuntu:14.04'
         with:
           entrypoint: /bin/bash
           args: |
@@ -134,7 +135,25 @@ jobs:
           REF_PWD: ${{ steps.vars.outputs.pwd }}
           REF_VER: ${{ steps.vars.outputs.build_ver }}
           UPSTREAM: ${{ env.UPSTREAM }}
-        #run: bash ci/prep.sh && bash ci/build.sh
+      - name: prep && build (ubuntu:20.04)
+        uses: docker://ubuntu:20.04
+        if: matrix.container_image == 'ubuntu:20.04'
+        with:
+          entrypoint: /bin/bash
+          args: |
+            -e -c "bash ci/prep.sh && bash ci/build.sh"
+        env:
+          CC: ${{ matrix.cc }}
+          ENV_OS: ${{ matrix.build_os || 'ubuntu-latest' }}
+          GOPATH: ${{ steps.vars.outputs.pwd }}/go
+          GO_ARCH: ${{ matrix.go_arch }}
+          GO_ARM: ${{ matrix.go_arm || null }}
+          GO_EXPERIMENT: ${{ matrix.go_experiment }}
+          GO_OS: ${{ matrix.go_os }}
+          REF_NAME: ${{ matrix.name }}
+          REF_PWD: ${{ steps.vars.outputs.pwd }}
+          REF_VER: ${{ steps.vars.outputs.build_ver }}
+          UPSTREAM: ${{ env.UPSTREAM }}
 
       - name: tar
         run: |
