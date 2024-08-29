@@ -183,13 +183,7 @@ jobs:
         with:
           path: gvm
           key: "gvm-${{ steps.go-ver.outputs.go_ver }}"
-      - id: cache-exit
-        shell: bash
-        run: |
-          if [[ "${{ steps.cache-go-trusty.outputs.cache-hit }}" != "true" ]]; then
-            echo "::error::GVM not found in cache" | tee -a ${GITHUB_OUTPUT}
-            exit 1
-          fi
+          fail-on-cache-miss: true
       - name: prep && build (ubuntu:14.04)
         uses: docker://ubuntu:14.04
         if: matrix.container_image == 'ubuntu:14.04'
@@ -197,7 +191,6 @@ jobs:
           entrypoint: /bin/bash
           args: |
             -e -c "
-            source ${PWD}/gvm/scripts/gvm
             bash ci/prep.sh
             bash ci/build.sh
             "
@@ -221,7 +214,6 @@ jobs:
           entrypoint: /bin/bash
           args: |
             -e -c "
-            source ${PWD}/gvm/scripts/gvm
             bash ci/prep.sh
             bash ci/build.sh
             "
@@ -241,14 +233,14 @@ jobs:
 
       - name: tar
         run: |
-          sudo chown $(id -u):$(id -g) "${{ steps.vars.outputs.pwd }}/dist"
-          cd "${{ steps.vars.outputs.pwd }}/dist"
-          tar czf teleport-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}.tar.gz teleport/
+          sudo chown $(id -u):$(id -g) "${{ steps.tp-ver.outputs.pwd }}/dist"
+          cd "${{ steps.tp-ver.outputs.pwd }}/dist"
+          tar czf teleport-${{ steps.tp-ver.outputs.build_ver }}-${{ matrix.name }}.tar.gz teleport/
 
       - uses: actions/upload-artifact@main
         if: github.event_name != 'pull_request'
         with:
-          name: ${{ github.event.repository.name }}-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}
+          name: ${{ github.event.repository.name }}-${{ steps.tp-ver.outputs.build_ver }}-${{ matrix.name }}
           path: dist/
           retention-days: 1
 
@@ -256,9 +248,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.event_name != 'pull_request'
         with:
-          tag_name: ${{ steps.vars.outputs.build_ver }}
+          tag_name: ${{ steps.tp-ver.outputs.build_ver }}
           files: |
-            dist/teleport-${{ steps.vars.outputs.build_ver }}-${{ matrix.name }}.tar.gz
+            dist/teleport-${{ steps.tp-ver.outputs.build_ver }}-${{ matrix.name }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   docker:
@@ -281,7 +273,7 @@ jobs:
           if [[ -n "${{ github.event.inputs.tp_version }}" ]]; then
                   INPUT="${{ github.event.inputs.tp_version }}"
           else
-                  INPUT=$(tail -n1 ci/VERSIONS)
+                  INPUT=$(grep -v '^#' ci/VERSIONS | tail -n 1)
           fi
           echo "REF=${INPUT}" | tee -a $GITHUB_OUTPUT
           if [[ "$(cat ci/LATEST)" == "${INPUT}" ]]; then

@@ -10,6 +10,7 @@ if [[ -n "${GO_EXPERIMENT}" && "${GOVERSION}" == go1.20* ]]; then export GOEXPER
 if [[ "${GOHOSTARCH}" != "${GO_ARCH}" ]]; then export CGO_ENABLED=1; fi
 if [[ -n "${CC}" ]]; then export CC=${CC}; export CGO_ENABLED=1; fi
 
+git config --global --add safe.directory "${PWD}/go/src/${UPSTREAM}"
 cd go/src/${UPSTREAM}
 echo "::group::go clean"
 go clean -modcache
