@@ -1,7 +1,6 @@
 #!/bin/bash
 source /github/home/.gvm/scripts/gvm
 gvm use go${GO_VERSION} --default
-set -e
 echo "=== Build"
 export PATH="/usr/lib/binutils-2.26/bin:$PATH"
 export GOOS=${GO_OS}
@@ -26,6 +25,7 @@ echo "::endgroup::"
 echo "::group::go env"
 go env
 echo "::endgroup::"
+set -e
 for x in 'teleport' 'tsh' 'tctl' 'tbot'; do
 	if [[ -d ./tool/$x ]]; then
 		echo "::group::Building ${x}"
