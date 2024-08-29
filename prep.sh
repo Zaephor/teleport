@@ -56,7 +56,7 @@ if [[ "${REF_NAME}" == "linux-armhf" ]]; then
 fi
 if [[ "${REF_NAME}" == "linux-armel" ]]; then
 	sudo dpkg --add-architecture armel
-	sudo apt-get -f -y install gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi
+	sudo apt-get -f -y install gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi g++-arm-linux-gnueabi cpp-arm-linux-gnueabi gccgo-4.7-arm-linux-gnueabi pkg-config-arm-linux-gnueabi
 fi
 if [[ "${REF_NAME}" == "linux-mips" ]]; then
 	sudo apt-get -f -y install gcc-mips-linux-gnu binutils-mips-linux-gnu

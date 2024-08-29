@@ -26,15 +26,14 @@ echo "::endgroup::"
 echo "::group::go env"
 go env
 echo "::endgroup::"
-set -e
 for x in 'tbot' 'tctl' 'tsh' 'teleport'; do
 	if [[ -d ./tool/$x ]]; then
 		echo "::group::Building ${x}"
-		if [[ "${GO_ARM:-}" == "5" ]]; then
-			#go build -tags "pam" -ldflags="-s -w -extldflags=-fuse-ld=gold" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
-			go build -tags "pam" -ldflags="-s -w -extldflags=-fuse-ld=lld" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
-		else
-			go build -tags "pam" -ldflags="-s -w" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
+		go build -tags "pam" -ldflags="-s -w" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
+		if [[ ! -e "${REF_PWD}/dist/teleport/${x}" ]]; then
+			echo "::endgroup::"
+			echo "::group::Building ${x} - Retry with gold linker"
+			go build -tags "pam" -ldflags="-s -w -extldflags=-fuse-ld=gold" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
 		fi
 		echo "::endgroup::"
 		if [[ ! -e "${REF_PWD}/dist/teleport/${x}" ]]; then
