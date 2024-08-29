@@ -17,7 +17,7 @@ sudo apt-get -y update
 echo "::endgroup::"
 echo "::group::install"
 if [[ "${ENV_OS}" == "ubuntu-latest" ]]; then
-	sudo apt-get -f -y install curl wget git libpam0g-dev binutils bison gcc make binutils-multiarch build-essential
+	sudo apt-get -f -y install curl wget git libpam0g-dev binutils bison gcc make binutils-multiarch build-essential bsdmainutils
 	VERSION_ID==$(awk -F'[[==\"]]' '/^VERSION_ID/{print $(NF-1)}' /etc/os-release)
 	if [[ "${VERSION_ID}" == "14.04" ]]; then
 		sudo apt-get -f -y install binutils-2.26
@@ -71,7 +71,7 @@ echo "::endgroup::"
 
 echo "::group::Setup gvm"
 bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer)
-source /root/.gvm/scripts/gvm
+source /github/home/.gvm/scripts/gvm
 echo "::endgroup::"
 echo "::group::Bootstrap go"
 gvm install go1.4 -B
