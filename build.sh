@@ -1,4 +1,5 @@
 #!/bin/bash
+source /root/.gvm/scripts/gvm
 echo "=== Build"
 export PATH="/usr/lib/binutils-2.26/bin:$PATH"
 export GOOS=${GO_OS}
@@ -16,9 +17,11 @@ echo "::group::go get"
 go get
 echo "::endgroup::"
 
-echo "::group::go env"
+echo "::group::path/shell"
 echo "PATH=$PATH"
 echo "SHELL=$SHELL"
+echo "::endgroup::"
+echo "::group::go env"
 go env
 echo "::endgroup::"
 for x in 'teleport' 'tsh' 'tctl' 'tbot'; do

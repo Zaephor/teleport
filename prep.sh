@@ -69,3 +69,17 @@ echo "::group::other"
 which ld
 echo "::endgroup::"
 
+echo "::group::Setup gvm"
+bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer)
+source /root/.gvm/scripts/gvm
+echo "::endgroup::"
+echo "::group::Bootstrap go"
+gvm install go1.4 -B
+gvm use go1.4
+export GOROOT_BOOTSTRAP=$GOROOT
+gvm install go1.17.13 -s
+gvm use go1.17.13
+export GOROOT_BOOTSTRAP=$GOROOT
+gvm install ${GO_VERSION} -s
+gvm use ${GO_VERSION} --default
+echo "::endgroup::"

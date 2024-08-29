@@ -131,6 +131,7 @@ jobs:
           GO_ARM: ${{ matrix.go_arm || null }}
           GO_EXPERIMENT: ${{ matrix.go_experiment }}
           GO_OS: ${{ matrix.go_os }}
+          GO_VERSION: ${{ steps.setup-go.outputs.go-version }}
           REF_NAME: ${{ matrix.name }}
           REF_PWD: ${{ steps.vars.outputs.pwd }}
           REF_VER: ${{ steps.vars.outputs.build_ver }}
