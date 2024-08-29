@@ -30,7 +30,11 @@ set -e
 for x in 'teleport' 'tsh' 'tctl' 'tbot'; do
 	if [[ -d ./tool/$x ]]; then
 		echo "::group::Building ${x}"
-		go build -tags "pam" -ldflags="-s -w" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
+		if [[ "${GO_ARM:-}" == "5" ]]; then
+			go build -tags "pam" -ldflags="-s -w -extldflags=-fuse-ld=gold" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
+		else
+			go build -tags "pam" -ldflags="-s -w" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
+		fi
 		echo "::endgroup::"
 		if [[ ! -e "${REF_PWD}/dist/teleport/${x}" ]]; then
 			exit 1
