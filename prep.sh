@@ -80,6 +80,6 @@ export GOROOT_BOOTSTRAP=$GOROOT
 gvm install go1.17.13
 gvm use go1.17.13
 export GOROOT_BOOTSTRAP=$GOROOT
-gvm install ${GO_VERSION}
-gvm use ${GO_VERSION} --default
+gvm install go${GO_VERSION}
+gvm use go${GO_VERSION} --default
 echo "::endgroup::"
