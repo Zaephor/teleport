@@ -83,11 +83,11 @@ for ver in "go1.17.13" "go${GO_VERSION}"; do
 	while [ ${RETRY} -ge 0 ]; do
 		gvm install ${ver}
 		if [ $? -ne 0 ]; then
-			if [[ ${RETRY} -le 0 ]]; then
-				exit 1
-			fi
 			RETRY=$(( ${RETRY} - 1 ))
 			sleep $(( (6 - ${RETRY}) * 15 ))s
+		fi
+		if [[ ${RETRY} -le 0 ]]; then
+			exit 1
 		fi
 	done
 	gvm use ${ver} --default
