@@ -232,9 +232,15 @@ jobs:
           UPSTREAM: ${{ env.UPSTREAM }}
 
       - name: tar
+        shell: bash
         run: |
           sudo chown $(id -u):$(id -g) "${{ steps.tp-ver.outputs.pwd }}/dist"
           cd "${{ steps.tp-ver.outputs.pwd }}/dist"
+          for x in 'teleport' 'tsh' 'tctl' 'tbot'; do
+            if [[ -e teleport/${x} ]]; then
+              sudo chmod +x teleport/${x}
+            fi
+          done
           tar czf teleport-${{ steps.tp-ver.outputs.build_ver }}-${{ matrix.name }}.tar.gz teleport/
 
       - uses: actions/upload-artifact@main
