@@ -1,4 +1,5 @@
 #!/bin/bash
+IFS=$'\n'
 source ${PWD}/gvm/scripts/gvm
 gvm use go${GO_VERSION} --default
 echo "=== Build"
@@ -9,6 +10,15 @@ if [[ -n "${GO_ARM}" ]]; then export GOARM=${GO_ARM}; fi
 if [[ -n "${GO_EXPERIMENT}" && "${GOVERSION}" == go1.20* ]]; then export GOEXPERIMENT=${GO_EXPERIMENT}; fi
 if [[ "${GOHOSTARCH}" != "${GO_ARCH}" ]]; then export CGO_ENABLED=1; fi
 if [[ -n "${CC}" ]]; then export CC=${CC}; export CGO_ENABLED=1; fi
+
+FLAGS=(
+	'-s -w'
+	'-s -w -extldflags "--long-plt"'
+	'-s -w -extldflags "--no-plt"'
+	'-s -w -extldflags "-fuse-ld=gold"'
+	'-s -w -extldflags "-fuse-ld=gold --long-plt"'
+	'-s -w -extldflags "-fuse-ld=gold --no-plt"'
+)
 
 git config --global --add safe.directory "${PWD}/go/src/${UPSTREAM}"
 cd go/src/${UPSTREAM}
@@ -28,15 +38,19 @@ go env
 echo "::endgroup::"
 for x in 'tbot' 'tctl' 'tsh' 'teleport'; do
 	if [[ -d ./tool/$x ]]; then
-		echo "::group::Building ${x}"
-		go build -tags "pam" -ldflags="-s -w" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
-		if [[ ! -e "${REF_PWD}/dist/teleport/${x}" ]]; then
+		for ldflag in ${FLAGS[@]}; do
+			echo "::group::Trying to build ${x} with ${ldflag}"
+			go build -tags "pam" -ldflags="${ldflag}" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
 			echo "::endgroup::"
-			echo "::group::Building ${x} - Retry with gold linker"
-			go build -tags "pam" -ldflags="-s -w -extldflags=-fuse-ld=gold" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
-		fi
-		echo "::endgroup::"
+			if [[ -e "${REF_PWD}/dist/teleport/${x}" ]]; then
+				echo "== ${x} - Success"
+				break
+			else
+				go clean -cache
+			fi
+		done
 		if [[ ! -e "${REF_PWD}/dist/teleport/${x}" ]]; then
+			echo "== ${x} - Fail"
 			exit 1
 		fi
 	fi
