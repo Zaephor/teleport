@@ -206,7 +206,7 @@ jobs:
           find artifacts
 
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@master
         with:
           tag_name: ${{ steps.vars_ci.outputs.REF }}
           files: |
@@ -293,7 +293,7 @@ jobs:
           echo "ARCHES=${ARCHES}"
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@master
         with:
           context: ci
           platforms: ${{ steps.plat.outputs.ARCHES }}
