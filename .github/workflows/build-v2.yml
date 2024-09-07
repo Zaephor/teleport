@@ -258,7 +258,7 @@ jobs:
           echo "ARCHES=${ARCHES}"
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ci
           platforms: ${{ steps.plat.outputs.ARCHES }}
