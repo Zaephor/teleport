@@ -127,14 +127,14 @@ jobs:
             go_arm: 6
             go_experiment: nounified
             cc: arm-linux-gnueabihf-gcc
-            container_image: 'ubuntu:20.04'
+            container_image: 'ubuntu:22.04'
             cargo_target: arm-unknown-linux-gnueabihf
           - name: linux-armel
             go_os: linux
             go_arch: arm
             go_arm: 5
             cc: arm-linux-gnueabi-gcc
-            container_image: 'ubuntu:20.04'
+            container_image: 'ubuntu:22.04'
 
 #          - name: linux-mips
 #            go_os: linux
@@ -219,6 +219,30 @@ jobs:
       - name: prep && build (ubuntu:20.04)
         uses: docker://ubuntu:20.04
         if: matrix.container_image == 'ubuntu:20.04'
+        with:
+          entrypoint: /bin/bash
+          args: |
+            -e -c "
+            bash ci/prep.sh
+            bash ci/build.sh
+            "
+        env:
+          CC: ${{ matrix.cc }}
+          ENV_OS: ${{ matrix.build_os || 'ubuntu-latest' }}
+          GOPATH: ${{ steps.tp-ver.outputs.pwd }}/go
+          GO_ARCH: ${{ matrix.go_arch }}
+          GO_ARM: ${{ matrix.go_arm || null }}
+          GO_EXPERIMENT: ${{ matrix.go_experiment }}
+          GO_OS: ${{ matrix.go_os }}
+          GO_VERSION: ${{ steps.go-ver.outputs.go_ver }}
+          REF_NAME: ${{ matrix.name }}
+          REF_PWD: ${{ steps.tp-ver.outputs.pwd }}
+          REF_VER: ${{ steps.tp-ver.outputs.build_ver }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+
+      - name: prep && build (ubuntu:22.04)
+        uses: docker://ubuntu:22.04
+        if: matrix.container_image == 'ubuntu:22.04'
         with:
           entrypoint: /bin/bash
           args: |
