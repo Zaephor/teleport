@@ -18,6 +18,9 @@ FLAGS=(
 	'-s -w -extldflags "-fuse-ld=gold"'
 	'-s -w -extldflags "-fuse-ld=gold --long-plt"'
 	'-s -w -extldflags "-fuse-ld=gold --no-plt"'
+	'-s'
+	'-w'
+	''
 )
 
 git config --global --add safe.directory "${PWD}/go/src/${UPSTREAM}"
@@ -40,7 +43,7 @@ for x in 'tbot' 'tctl' 'tsh' 'teleport'; do
 	if [[ -d ./tool/$x ]]; then
 		for ldflag in ${FLAGS[@]}; do
 			echo "::group::Trying to build ${x} with ${ldflag}"
-			go build -tags "pam" -ldflags="${ldflag}" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
+			go build -v -tags "pam" -ldflags="${ldflag}" -o "${REF_PWD}/dist/teleport/${x}" ./tool/${x}
 			echo "::endgroup::"
 			if [[ -e "${REF_PWD}/dist/teleport/${x}" ]]; then
 				echo "== ${x} - Success"
