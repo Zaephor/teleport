@@ -20,19 +20,30 @@ PLATFORM_NAME="${ARCH_NAME}"
 
 echo "=== Packaging ${VERSION} for ${PLATFORM_NAME}"
 
-# Set permissions
-for x in teleport tctl tsh tbot; do
-  if [[ -e "${DIST_DIR}/teleport/${x}" ]]; then
-    chmod +x "${DIST_DIR}/teleport/${x}"
-  fi
-done
+# Set permissions (skip on Windows — no chmod needed for .exe)
+if [[ "${OS}" != "windows" ]]; then
+  for x in teleport tctl tsh tbot teleport-update; do
+    if [[ -e "${DIST_DIR}/teleport/${x}" ]]; then
+      chmod +x "${DIST_DIR}/teleport/${x}"
+    fi
+  done
+fi
 
 # Create archive
 if [[ "${OS}" == "windows" ]]; then
-  # ZIP for Windows
+  # ZIP for Windows — use PowerShell (zip not available on Windows runners)
   cd "${DIST_DIR}"
   ARCHIVE="teleport-${VERSION}-${PLATFORM_NAME}.zip"
-  zip -r "${ARTIFACTS_DIR}/${ARCHIVE}" teleport/
+  if command -v zip &>/dev/null; then
+    zip -r "${ARTIFACTS_DIR}/${ARCHIVE}" teleport/
+  elif command -v powershell.exe &>/dev/null; then
+    powershell.exe -NoProfile -Command "Compress-Archive -Path 'teleport' -DestinationPath '${ARTIFACTS_DIR}/${ARCHIVE}' -Force"
+  elif command -v 7z &>/dev/null; then
+    7z a "${ARTIFACTS_DIR}/${ARCHIVE}" teleport/
+  else
+    echo "ERROR: No zip tool available (tried zip, powershell, 7z)"
+    exit 1
+  fi
   echo "Created ${ARCHIVE}"
 else
   # tar.gz for Linux and macOS
@@ -74,7 +85,7 @@ fi
 # Prepare nfpm tmp directory
 NFPM_TMP="${BASE_DIR}/tmp"
 mkdir -p "${NFPM_TMP}"
-for x in teleport tctl tsh tbot; do
+for x in teleport tctl tsh tbot teleport-update; do
   if [[ -e "${DIST_DIR}/teleport/${x}" ]]; then
     cp "${DIST_DIR}/teleport/${x}" "${NFPM_TMP}/"
   fi

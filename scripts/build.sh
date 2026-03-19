@@ -40,9 +40,22 @@ if [[ -n "${GO_EXPERIMENT:-}" && "${GO_VERSION:-}" == 1.20* ]]; then
   export GOEXPERIMENT="${GO_EXPERIMENT}"
 fi
 
-# CGO settings
-if [[ "${GO_OS}" == "darwin" || "${GO_OS}" == "windows" ]]; then
-  export CGO_ENABLED=0
+# --- CGO settings (match upstream common.mk) ---
+if [[ "${GO_OS}" == "darwin" ]]; then
+  export CGO_ENABLED=1
+  # Don't set CGO_CFLAGS — it overrides per-file #cgo CFLAGS directives in the
+  # source (e.g. -xobjective-c -fobjc-arc in oslog_darwin.go).
+  # MACOSX_DEPLOYMENT_TARGET achieves the same min-version targeting without
+  # clobbering source-level flags.
+  export MACOSX_DEPLOYMENT_TARGET="12.0"
+  # Use the full Xcode SDK, not CommandLineTools — the CLT SDK has incomplete
+  # ObjC headers (NSUInteger/NSInteger undefined in Foundation.h)
+  if command -v xcrun &>/dev/null; then
+    XCODE_SDK="$(xcrun --show-sdk-path 2>/dev/null || true)"
+    if [[ -n "${XCODE_SDK}" && -d "${XCODE_SDK}" ]]; then
+      export SDKROOT="${XCODE_SDK}"
+    fi
+  fi
 elif [[ "${GOHOSTARCH:-$(go env GOHOSTARCH)}" != "${GO_ARCH}" ]]; then
   export CGO_ENABLED=1
 fi
@@ -51,29 +64,104 @@ if [[ -n "${CC:-}" ]]; then
   export CGO_ENABLED=1
 fi
 
-# Build tags
-BUILD_TAGS=""
-if [[ "${PAM:-true}" == "true" && "${GO_OS}" == "linux" ]]; then
-  BUILD_TAGS="pam"
+# --- Go version detection for conditional flags ---
+# Parse major.minor from GO_VERSION (e.g. "1.23" or "1.17.13")
+GO_MINOR=$(echo "${GO_VERSION:-0.0}" | cut -d. -f2)
+
+# -trimpath: Go 1.13+;  -buildvcs=false: Go 1.18+
+GO_BUILD_FLAGS=(-v)
+if [[ "${GO_MINOR}" -ge 13 ]]; then
+  GO_BUILD_FLAGS+=(-trimpath)
+fi
+if [[ "${GO_MINOR}" -ge 18 ]]; then
+  GO_BUILD_FLAGS+=(-buildvcs=false)
 fi
 
-# Linker flag combinations to try (some fail on certain toolchains)
-# For CGO_ENABLED=0 (darwin/windows), extldflags are irrelevant — use simple flags only
-if [[ "${CGO_ENABLED:-1}" == "0" ]]; then
-  FLAGS=('-s -w' '-s' '-w' '')
-else
-  FLAGS=(
-    '-s -w'
-    '-s -w -extldflags "--long-plt"'
-    '-s -w -extldflags "--no-plt"'
-    '-s -w -extldflags "-fuse-ld=gold"'
-    '-s -w -extldflags "-fuse-ld=gold --long-plt"'
-    '-s -w -extldflags "-fuse-ld=gold --no-plt"'
-    '-s'
-    '-w'
-    ''
-  )
+# --- Build tags (match upstream Makefile per-binary tag sets) ---
+# kustomize_disable_go_plugin_support: harmless on old versions (no matching files)
+BASE_TAGS="kustomize_disable_go_plugin_support"
+PAM_TAG=""
+if [[ "${PAM:-true}" == "true" && "${GO_OS}" == "linux" ]]; then
+  PAM_TAG="pam"
 fi
+
+# --- Version injection ldflags (match upstream -X flags) ---
+# Silently ignored by older Go/teleport versions if the symbol path doesn't exist
+VERSION_LDFLAGS="-X github.com/gravitational/teleport/lib/modules.teleportBuildType=community"
+
+# --- Platform-specific linker flags (match upstream common.mk) ---
+PLATFORM_LDFLAGS=""
+if [[ "${GO_OS}" == "darwin" && "${GO_ARCH}" == "arm64" ]]; then
+  # Apple's new linker in Xcode 15+ breaks Go builds (Go issue #67854)
+  PLATFORM_LDFLAGS="-extldflags=-ld_classic"
+fi
+
+# ARM-specific: -debugtramp=2 works around 24-bit call offset limits (matches upstream)
+# Available in Go 1.17+ linker
+DEBUGTRAMP=""
+if [[ ( "${GO_ARCH}" == "arm" || "${GO_ARCH}" == "arm64" ) && "${GO_MINOR}" -ge 17 ]]; then
+  DEBUGTRAMP="-debugtramp=2"
+fi
+
+# --- Build a single binary with flag fallback ---
+# Usage: build_binary <name> <cgo_enabled> <tags>
+build_binary() {
+  local x="$1"
+  local use_cgo="$2"
+  local tags="$3"
+
+  local TAG_ARGS=()
+  # shellcheck disable=SC2086
+  if [[ -n "${tags}" ]]; then
+    TAG_ARGS=(-tags "${tags}")
+  fi
+
+  # Build flags array depends on CGO mode
+  local FLAGS=()
+  if [[ "${use_cgo}" == "0" ]]; then
+    # CGO_ENABLED=0: internal linker, no extldflags needed
+    FLAGS=(
+      "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP}"
+      "-s -w ${VERSION_LDFLAGS}"
+      "-s ${VERSION_LDFLAGS}"
+      "-w ${VERSION_LDFLAGS}"
+      "${VERSION_LDFLAGS}"
+    )
+  else
+    # CGO_ENABLED=1: try various external linker flag combos
+    # Note: --long-plt and --no-plt are LINKER flags, passed via -Wl, through gcc
+    FLAGS=(
+      "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} ${PLATFORM_LDFLAGS}"
+      "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} ${PLATFORM_LDFLAGS} -extldflags \"-fuse-ld=lld\""
+      "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} ${PLATFORM_LDFLAGS} -extldflags \"-fuse-ld=lld -Wl,--long-plt\""
+      "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} ${PLATFORM_LDFLAGS} -extldflags \"-Wl,--long-plt\""
+      "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} -extldflags \"-fuse-ld=gold -Wl,--long-plt\""
+      "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} -extldflags \"-fuse-ld=gold\""
+      "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} -extldflags \"-Wl,--no-plt\""
+      "-s ${VERSION_LDFLAGS}"
+      "-w ${VERSION_LDFLAGS}"
+      "${VERSION_LDFLAGS}"
+    )
+  fi
+
+  for ldflag in "${FLAGS[@]}"; do
+    # Trim whitespace from ldflag (empty DEBUGTRAMP/PLATFORM_LDFLAGS leave gaps)
+    ldflag="$(echo "${ldflag}" | tr -s ' ')"
+    echo "::group::Trying to build ${x} with CGO_ENABLED=${use_cgo} '${ldflag}'"
+    if CGO_ENABLED="${use_cgo}" go build "${GO_BUILD_FLAGS[@]}" \
+        "${TAG_ARGS[@]}" -ldflags "${ldflag}" \
+        -o "${REF_PWD}/dist/teleport/${x}" "./tool/${x}" 2>&1; then
+      echo "::endgroup::"
+      local SIZE
+      SIZE=$(stat -c%s "${REF_PWD}/dist/teleport/${x}" 2>/dev/null || stat -f%z "${REF_PWD}/dist/teleport/${x}" 2>/dev/null || echo "?")
+      echo "== ${x} - Success (${SIZE} bytes, CGO_ENABLED=${use_cgo})"
+      return 0
+    fi
+    echo "::endgroup::"
+    go clean -cache 2>/dev/null || true
+  done
+  return 1
+}
 
 SOURCE_DIR="${REF_PWD}/go/src/${UPSTREAM}"
 mkdir -p "${REF_PWD}/dist/teleport"
@@ -107,41 +195,77 @@ if [[ "${BUILD_METHOD}" == "make-release" ]]; then
   fi
 else
   # Direct go build for each binary
-  echo "::group::go clean"
-  go clean -modcache 2>/dev/null || true
+  echo "::group::go mod download"
+  go mod download 2>/dev/null || go get 2>/dev/null || true
   echo "::endgroup::"
 
-  echo "::group::go get"
-  go get 2>/dev/null || go mod download 2>/dev/null || true
-  echo "::endgroup::"
+  for x in 'tbot' 'tctl' 'tsh' 'teleport' 'teleport-update'; do
+    if [[ ! -d "./tool/${x}" ]]; then
+      # tbot and teleport-update don't exist in older versions — that's fine
+      continue
+    fi
 
-  for x in 'tbot' 'tctl' 'tsh' 'teleport'; do
-    if [[ -d "./tool/${x}" ]]; then
-      BUILT=false
-      for ldflag in "${FLAGS[@]}"; do
-        echo "::group::Trying to build ${x} with '${ldflag}'"
-        TAG_ARGS=()
-        if [[ -n "${BUILD_TAGS}" ]]; then
-          TAG_ARGS=(-tags "${BUILD_TAGS}")
+    # teleport server binary is Linux/macOS-only (uses syscall.Credential, SIGUSR1, etc.)
+    # Upstream doesn't build it for Windows either
+    if [[ "${x}" == "teleport" && "${GO_OS}" == "windows" ]]; then
+      echo "== ${x} - SKIPPED (server binary is Linux/macOS only)"
+      continue
+    fi
+
+    # Per-binary tags and CGO (match upstream Makefile)
+    #   tbot:            CGO_ENABLED=0 (non-Windows), base tags only
+    #   tctl:            CGO_ENABLED=1, pam + base tags
+    #   tsh:             CGO_ENABLED=1, base tags (no pam)
+    #   teleport:        CGO_ENABLED=1, pam + base tags
+    #   teleport-update: CGO_ENABLED=0, no tags
+    BINARY_CGO="${CGO_ENABLED:-1}"
+    BINARY_TAGS="${BASE_TAGS}"
+    case "${x}" in
+      tbot)
+        # Upstream: CGO_ENABLED=0 for tbot on non-Windows.
+        # On Windows, tncon package requires CGO (//go:build windows && cgo)
+        if [[ "${GO_OS}" != "windows" ]]; then
+          BINARY_CGO=0
         fi
-        # shellcheck disable=SC2086
-        if go build -v "${TAG_ARGS[@]}" -ldflags="${ldflag}" -o "${REF_PWD}/dist/teleport/${x}" "./tool/${x}"; then
-          echo "::endgroup::"
-          echo "== ${x} - Success"
-          BUILT=true
-          break
-        fi
-        echo "::endgroup::"
-        go clean -cache 2>/dev/null || true
-      done
-      if [[ "${BUILT}" != "true" ]]; then
-        if [[ "${GO_OS}" != "linux" ]]; then
-          echo "== ${x} - SKIPPED (cross-compile to ${GO_OS}/${GO_ARCH} failed, continuing)"
-        else
-          echo "== ${x} - FAILED (all linker flag combos exhausted)"
-          exit 1
-        fi
+        ;;
+      teleport-update)
+        # Upstream: always CGO_ENABLED=0, no feature tags
+        BINARY_CGO=0
+        BINARY_TAGS=""
+        ;;
+      tctl|teleport)
+        BINARY_TAGS="${PAM_TAG} ${BASE_TAGS}"
+        ;;
+      tsh)
+        # Upstream: tsh doesn't use pam tag
+        ;;
+    esac
+    # Trim whitespace
+    BINARY_TAGS="$(echo "${BINARY_TAGS}" | xargs)"
+
+    BUILT=false
+
+    # Attempt 1: build with configured CGO setting
+    if build_binary "${x}" "${BINARY_CGO}" "${BINARY_TAGS}"; then
+      BUILT=true
+    fi
+
+    # Attempt 2: CGO_ENABLED=0 fallback (if we were using CGO=1)
+    # External linkers can fail on large binaries (ARM32 PLT overflow, etc.)
+    # Go's internal linker has no such limits. Trade-off: loses PAM.
+    if [[ "${BUILT}" != "true" && "${BINARY_CGO}" != "0" ]]; then
+      echo ":: Retrying ${x} with CGO_ENABLED=0 (internal linker fallback)"
+      # Drop pam tag — requires CGO
+      FALLBACK_TAGS="${BINARY_TAGS//pam/}"
+      FALLBACK_TAGS="$(echo "${FALLBACK_TAGS}" | xargs)"
+      if build_binary "${x}" "0" "${FALLBACK_TAGS}"; then
+        BUILT=true
       fi
+    fi
+
+    if [[ "${BUILT}" != "true" ]]; then
+      echo "== ${x} - FAILED (all linker flag combos exhausted)"
+      exit 1
     fi
   done
 fi

@@ -94,11 +94,3 @@ jobs:
     with:
       tp_version: ${{ needs.detect.outputs.build_ver }}
     secrets: inherit
-
-  docker:
-    needs: [detect, build-era1, build-era2, build-era3, build-era4, build-era5]
-    if: always() && needs.detect.result == 'success' && (needs.build-era1.result == 'success' || needs.build-era2.result == 'success' || needs.build-era3.result == 'success' || needs.build-era4.result == 'success' || needs.build-era5.result == 'success')
-    uses: ./.github/workflows/docker.yml
-    with:
-      tp_version: ${{ needs.detect.outputs.build_ver }}
-    secrets: inherit

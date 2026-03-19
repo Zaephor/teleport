@@ -64,13 +64,13 @@ case "${GO_ARCH:-amd64}" in
       sudo dpkg --add-architecture armhf 2>/dev/null || true
       sudo apt-get -y update || true
       sudo apt-get -f -y install libc6-armhf-cross libc6-dev-armhf-cross \
-        gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf || true
+        gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf lld || true
     fi
     if [[ "${GO_ARM:-6}" == "5" ]]; then
       sudo dpkg --add-architecture armel 2>/dev/null || true
       sudo apt-get -y update || true
       sudo apt-get -f -y install libc6-armel-cross libc6-dev-armel-cross \
-        gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi || true
+        gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi lld || true
     fi
     ;;
 esac

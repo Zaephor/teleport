@@ -167,10 +167,11 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            draconrose/teleport-lsio
-            ghcr.io/${{ github.repository_owner }}/teleport-lsio
+            draconrose/teleport
+            ghcr.io/${{ github.repository_owner }}/teleport
           flavor: |
             latest=false
+            suffix=-lsio,onlatest=true
           tags: |
             type=semver,pattern=v{{major}}.{{minor}}.{{patch}},value=${{ inputs.tp_version }}
             type=semver,pattern=v{{major}}.{{minor}},value=${{ inputs.tp_version }}
