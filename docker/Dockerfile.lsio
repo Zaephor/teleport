@@ -1,0 +1,38 @@
+FROM lsiobase/ubuntu:noble
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl && \
+    rm -rf /var/lib/apt/lists/*
+
+EXPOSE 3022 3023 3024 3025 3026 3080
+VOLUME /config
+
+COPY s6/ /
+
+ARG RELEASE
+ARG GITHUB_REPO=Zaephor/teleport
+
+LABEL org.opencontainers.image.title="Teleport" \
+      org.opencontainers.image.source="https://github.com/${GITHUB_REPO}" \
+      org.opencontainers.image.description="Multi-arch builds of Teleport" \
+      org.opencontainers.image.version="${RELEASE}" \
+      maintainer="Zaephor <Zaephor@users.noreply.github.com>"
+
+# Map Docker platform to release artifact arch name, download and install binaries
+RUN set -eux; \
+    ARCH="$(dpkg --print-architecture)"; \
+    case "${ARCH}" in \
+      amd64)  ARTIFACT_ARCH="linux-amd64" ;; \
+      arm64)  ARTIFACT_ARCH="linux-arm64" ;; \
+      armhf)  ARTIFACT_ARCH="linux-armhf" ;; \
+      *)      echo "Unsupported arch: ${ARCH}"; exit 1 ;; \
+    esac; \
+    URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE}/teleport-${RELEASE}-${ARTIFACT_ARCH}.tar.gz"; \
+    curl -fsSL "${URL}" -o /tmp/teleport.tar.gz; \
+    tar -xzf /tmp/teleport.tar.gz -C /usr/local/bin --strip-components=1 \
+      teleport/teleport teleport/tctl teleport/tsh; \
+    tar -xzf /tmp/teleport.tar.gz -C /usr/local/bin --strip-components=1 \
+      teleport/tbot 2>/dev/null || true; \
+    rm -f /tmp/teleport.tar.gz; \
+    chmod +x /usr/local/bin/teleport /usr/local/bin/tctl /usr/local/bin/tsh; \
+    chmod +x /usr/local/bin/tbot 2>/dev/null || true

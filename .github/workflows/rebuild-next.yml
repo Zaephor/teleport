@@ -1,0 +1,106 @@
+name: "Rebuild Next"
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_from:
+        description: "Start from this version (optional, otherwise finds first missing)"
+        required: false
+        default: ""
+  repository_dispatch:
+    types:
+      - rebuild-next
+
+permissions:
+  contents: write    # needed by build-router → era workflows for releases
+  packages: write    # needed by build-router → docker.yml for GHCR push
+  actions: read
+
+concurrency:
+  group: rebuild-next
+  cancel-in-progress: false
+
+jobs:
+  find-and-build:
+    runs-on: ubuntu-latest
+    outputs:
+      found_ver: ${{ steps.find.outputs.ver }}
+      has_next: ${{ steps.find.outputs.has_next }}
+    steps:
+      - name: Checkout CI
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Find next version to build
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          START_FROM="${{ inputs.start_from || github.event.client_payload.start_from || '' }}"
+          FOUND=""
+          HAS_NEXT="false"
+          STARTED="false"
+
+          if [[ -z "${START_FROM}" ]]; then
+            STARTED="true"
+          fi
+
+          while IFS= read -r ver; do
+            # Skip comments and empty lines
+            [[ "${ver}" =~ ^#.*$ || -z "${ver}" ]] && continue
+
+            # If start_from specified, skip until we reach it
+            if [[ "${STARTED}" != "true" ]]; then
+              if [[ "${ver}" == "${START_FROM}" ]]; then
+                STARTED="true"
+              else
+                continue
+              fi
+            fi
+
+            # Check if release exists with at least one artifact
+            RELEASE_EXISTS=$(gh release view "${ver}" --json assets --jq '.assets | length' 2>/dev/null || echo "0")
+            if [[ "${RELEASE_EXISTS}" == "0" ]]; then
+              if [[ -z "${FOUND}" ]]; then
+                FOUND="${ver}"
+              else
+                # There's at least one more after the one we found
+                HAS_NEXT="true"
+                break
+              fi
+            fi
+          done < VERSIONS
+
+          if [[ -n "${FOUND}" ]]; then
+            echo "ver=${FOUND}" >> "$GITHUB_OUTPUT"
+            echo "has_next=${HAS_NEXT}" >> "$GITHUB_OUTPUT"
+            echo "Next version to build: ${FOUND} (more remaining: ${HAS_NEXT})"
+          else
+            echo "ver=" >> "$GITHUB_OUTPUT"
+            echo "has_next=false" >> "$GITHUB_OUTPUT"
+            echo "All versions have releases!"
+          fi
+
+  build:
+    needs: find-and-build
+    if: needs.find-and-build.outputs.found_ver != ''
+    uses: ./.github/workflows/build-router.yml
+    with:
+      tp_version: ${{ needs.find-and-build.outputs.found_ver }}
+    secrets: inherit
+
+  chain-next:
+    needs: [find-and-build, build]
+    if: needs.find-and-build.result == 'success' && needs.build.result == 'success' && needs.find-and-build.outputs.has_next == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger next rebuild
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GH_PAT }}
+          repository: ${{ github.repository }}
+          event-type: rebuild-next
+          client-payload: '{"start_from": "${{ needs.find-and-build.outputs.found_ver }}"}'

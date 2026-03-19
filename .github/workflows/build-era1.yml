@@ -1,0 +1,233 @@
+name: "Build Era 1 (v2.0.1–v4.4.12)"
+
+on:
+  workflow_call:
+    inputs:
+      tp_version:
+        description: "Teleport version tag (e.g. v3.2.1)"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tp_version:
+        description: "Teleport version tag (e.g. v3.2.1)"
+        required: true
+        default: "v4.4.12"
+
+permissions:
+  contents: write    # needed for release creation
+  actions: read      # needed for cache
+
+env:
+  UPSTREAM: github.com/gravitational/teleport
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            go_os: linux
+            go_arch: amd64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:14.04
+            pam: "true"
+            cc: ""
+          - name: linux-i386
+            go_os: linux
+            go_arch: "386"
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:14.04
+            pam: "true"
+            cc: ""
+          - name: linux-arm64
+            go_os: linux
+            go_arch: arm64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:20.04
+            pam: "true"
+            cc: aarch64-linux-gnu-gcc
+          - name: linux-armhf
+            go_os: linux
+            go_arch: arm
+            go_arm: "6"
+            go_experiment: ""
+            build_container: ubuntu:22.04
+            pam: "true"
+            cc: arm-linux-gnueabihf-gcc
+          - name: linux-armel
+            go_os: linux
+            go_arch: arm
+            go_arm: "5"
+            go_experiment: ""
+            build_container: ubuntu:22.04
+            pam: "true"
+            cc: arm-linux-gnueabi-gcc
+          - name: darwin-amd64
+            go_os: darwin
+            go_arch: amd64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:22.04
+            pam: "false"
+            cc: ""
+          - name: darwin-arm64
+            go_os: darwin
+            go_arch: arm64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:22.04
+            pam: "false"
+            cc: ""
+          - name: windows-amd64
+            go_os: windows
+            go_arch: amd64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:22.04
+            pam: "false"
+            cc: ""
+
+    steps:
+      - name: Checkout CI repo
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          path: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout teleport source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tp_version }}
+          path: go/src/${{ env.UPSTREAM }}
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Resolve Go version
+        id: resolve_go
+        run: |
+          GO_VERSION=$(bash ci/scripts/resolve-go.sh "${{ inputs.tp_version }}" "go/src/${{ env.UPSTREAM }}" ci)
+          echo "go_version=${GO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved Go version: ${GO_VERSION}"
+
+      - name: Cache GVM
+        uses: actions/cache@v4
+        with:
+          path: gvm
+          key: gvm-${{ steps.resolve_go.outputs.go_version }}-${{ matrix.build_container }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: go/pkg/mod
+          key: gomod-${{ inputs.tp_version }}
+          restore-keys: gomod-
+
+      - name: Cache Go build
+        uses: actions/cache@v4
+        with:
+          path: .cache/go-build
+          key: gobuild-${{ inputs.tp_version }}-${{ matrix.name }}
+          restore-keys: gobuild-${{ inputs.tp_version }}-
+
+      - name: Build (ubuntu:14.04)
+        if: matrix.build_container == 'ubuntu:14.04'
+        uses: docker://ubuntu:14.04
+        env:
+          CC: ${{ matrix.cc }}
+          GO_OS: ${{ matrix.go_os }}
+          GO_ARCH: ${{ matrix.go_arch }}
+          GO_ARM: ${{ matrix.go_arm }}
+          GO_EXPERIMENT: ${{ matrix.go_experiment }}
+          GO_VERSION: ${{ steps.resolve_go.outputs.go_version }}
+          REF_NAME: ${{ matrix.name }}
+          REF_PWD: ${{ github.workspace }}
+          REF_VER: ${{ inputs.tp_version }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+          PAM: ${{ matrix.pam }}
+          GOPATH: ${{ github.workspace }}/go
+          GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
+          GOCACHE: ${{ github.workspace }}/.cache/go-build
+        with:
+          entrypoint: /bin/bash
+          args: >-
+            -c "bash ci/scripts/prep.sh && bash ci/scripts/install-go.sh ${GO_VERSION} ${PWD}/gvm && bash ci/scripts/build.sh"
+
+      - name: Build (ubuntu:20.04)
+        if: matrix.build_container == 'ubuntu:20.04'
+        uses: docker://ubuntu:20.04
+        env:
+          CC: ${{ matrix.cc }}
+          GO_OS: ${{ matrix.go_os }}
+          GO_ARCH: ${{ matrix.go_arch }}
+          GO_ARM: ${{ matrix.go_arm }}
+          GO_EXPERIMENT: ${{ matrix.go_experiment }}
+          GO_VERSION: ${{ steps.resolve_go.outputs.go_version }}
+          REF_NAME: ${{ matrix.name }}
+          REF_PWD: ${{ github.workspace }}
+          REF_VER: ${{ inputs.tp_version }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+          PAM: ${{ matrix.pam }}
+          GOPATH: ${{ github.workspace }}/go
+          GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
+          GOCACHE: ${{ github.workspace }}/.cache/go-build
+        with:
+          entrypoint: /bin/bash
+          args: >-
+            -c "bash ci/scripts/prep.sh && bash ci/scripts/install-go.sh ${GO_VERSION} ${PWD}/gvm && bash ci/scripts/build.sh"
+
+      - name: Build (ubuntu:22.04)
+        if: matrix.build_container == 'ubuntu:22.04'
+        uses: docker://ubuntu:22.04
+        env:
+          CC: ${{ matrix.cc }}
+          GO_OS: ${{ matrix.go_os }}
+          GO_ARCH: ${{ matrix.go_arch }}
+          GO_ARM: ${{ matrix.go_arm }}
+          GO_EXPERIMENT: ${{ matrix.go_experiment }}
+          GO_VERSION: ${{ steps.resolve_go.outputs.go_version }}
+          REF_NAME: ${{ matrix.name }}
+          REF_PWD: ${{ github.workspace }}
+          REF_VER: ${{ inputs.tp_version }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+          PAM: ${{ matrix.pam }}
+          GOPATH: ${{ github.workspace }}/go
+          GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
+          GOCACHE: ${{ github.workspace }}/.cache/go-build
+        with:
+          entrypoint: /bin/bash
+          args: >-
+            -c "bash ci/scripts/prep.sh && bash ci/scripts/install-go.sh ${GO_VERSION} ${PWD}/gvm && bash ci/scripts/build.sh"
+
+      - name: Package
+        env:
+          REF_PWD: ${{ github.workspace }}
+        run: |
+          sudo chown -R $(id -u):$(id -g) "${{ github.workspace }}/dist" || true
+          bash ci/scripts/package.sh "${{ inputs.tp_version }}" "${{ matrix.go_os }}" "${{ matrix.name }}" ci
+
+      - name: List artifacts
+        run: ls -la artifacts/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: teleport-${{ inputs.tp_version }}-${{ matrix.name }}
+          path: artifacts/*
+          retention-days: 1
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tp_version }}
+          files: artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

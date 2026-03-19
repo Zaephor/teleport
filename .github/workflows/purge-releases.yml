@@ -1,0 +1,55 @@
+name: "Purge All Releases"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DELETE to confirm purging all releases'
+        required: true
+        default: ''
+
+permissions:
+  contents: write    # needed for deleting releases
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'DELETE'
+    steps:
+      - name: Checkout CI
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Delete all releases
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "Fetching all releases..."
+          RELEASES=$(gh release list --limit 1000 --json tagName --jq '.[].tagName')
+          COUNT=$(echo "${RELEASES}" | wc -l)
+          echo "Found ${COUNT} releases to delete"
+
+          for tag in ${RELEASES}; do
+            echo "Deleting release ${tag}..."
+            gh release delete "${tag}" --yes --cleanup-tag 2>/dev/null || \
+              gh release delete "${tag}" --yes 2>/dev/null || \
+              echo "Failed to delete ${tag}"
+            sleep 0.5
+          done
+
+          echo "Done. Deleted releases."
+
+  trigger-rebuild:
+    needs: purge
+    if: github.event.inputs.confirm == 'DELETE'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger rebuild-next
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GH_PAT }}
+          repository: ${{ github.repository }}
+          event-type: rebuild-next

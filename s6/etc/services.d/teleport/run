@@ -1,27 +1,32 @@
 #!/usr/bin/with-contenv bash
-#exec /usr/sbin/teleport start --config=/config/teleport.yaml
+# Run teleport under s6 supervision
 
-UMASK_SET=${UMASK_SET:-022}
-
-umask "$UMASK_SET"
-
-TP_REAL_OPTS=()
-
-if [[ -n "${TP_OPTS}" ]]; then
-	TP_RAW_OPTS=( ${TP_OPTS/,/ } )
-	for VAL in ${TP_RAW_OPTS[@]}; do
-		TP_REAL_OPTS+=( "${VAL}" )
-	done
+if [[ ! -x /usr/local/bin/teleport ]]; then
+  echo "ERROR: teleport binary not found"
+  exit 111  # s6 exit code for "permanent failure, don't restart"
 fi
 
-if [[ -n "${TP_INSECURE}" && "${TP_INSECURE}" == "true" ]]; then
-	TP_REAL_OPTS+=( '--insecure' )
-fi
-if [[ -n "${TP_INSECURE_NO_TLS}" && "${TP_INSECURE_NO_TLS}" == "true" ]]; then
-	TP_REAL_OPTS+=( '--insecure-no-tls' )
+umask "${UMASK_SET:-022}"
+
+OPTS=("start")
+
+# Parse comma-separated TP_OPTS
+if [[ -n "${TP_OPTS:-}" ]]; then
+  IFS=',' read -ra EXTRA_OPTS <<< "${TP_OPTS}"
+  for opt in "${EXTRA_OPTS[@]}"; do
+    OPTS+=("${opt}")
+  done
 fi
 
-TP_REAL_OPTS+=( "--config=${TP_CONFIG:-/config/teleport.yaml}" )
+# Convenience flags
+if [[ "${TP_INSECURE:-}" == "true" ]]; then
+  OPTS+=("--insecure")
+fi
+if [[ "${TP_INSECURE_NO_TLS:-}" == "true" ]]; then
+  OPTS+=("--insecure-no-tls")
+fi
 
-exec \
-	s6-setuidgid root /usr/local/bin/teleport start ${TP_REAL_OPTS[@]}
+# Config file
+OPTS+=("--config=${TP_CONFIG:-/config/teleport.yaml}")
+
+exec s6-setuidgid root /usr/local/bin/teleport "${OPTS[@]}"

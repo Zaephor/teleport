@@ -1,0 +1,104 @@
+name: "Build Router"
+
+on:
+  workflow_call:
+    inputs:
+      tp_version:
+        description: "Teleport version tag"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tp_version:
+        description: "Teleport version tag (e.g. v16.0.0)"
+        required: true
+  push:
+    branches:
+      - ci
+
+permissions:
+  contents: write
+  packages: write    # needed by docker.yml for GHCR push
+  actions: read
+
+concurrency:
+  group: build-${{ inputs.tp_version || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      era: ${{ steps.era.outputs.era }}
+      build_ver: ${{ steps.ver.outputs.build_ver }}
+    steps:
+      - name: Checkout CI
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [ -n "${{ inputs.tp_version }}" ]; then
+            echo "build_ver=${{ inputs.tp_version }}" | tee -a "$GITHUB_OUTPUT"
+          else
+            VER=$(grep -v '^#' VERSIONS | tail -n1)
+            echo "build_ver=${VER}" | tee -a "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect era
+        id: era
+        run: |
+          ERA=$(bash scripts/detect-era.sh "${{ steps.ver.outputs.build_ver }}")
+          echo "era=${ERA}" | tee -a "$GITHUB_OUTPUT"
+
+  build-era1:
+    needs: detect
+    if: needs.detect.outputs.era == '1'
+    uses: ./.github/workflows/build-era1.yml
+    with:
+      tp_version: ${{ needs.detect.outputs.build_ver }}
+    secrets: inherit
+
+  build-era2:
+    needs: detect
+    if: needs.detect.outputs.era == '2'
+    uses: ./.github/workflows/build-era2.yml
+    with:
+      tp_version: ${{ needs.detect.outputs.build_ver }}
+    secrets: inherit
+
+  build-era3:
+    needs: detect
+    if: needs.detect.outputs.era == '3'
+    uses: ./.github/workflows/build-era3.yml
+    with:
+      tp_version: ${{ needs.detect.outputs.build_ver }}
+    secrets: inherit
+
+  build-era4:
+    needs: detect
+    if: needs.detect.outputs.era == '4'
+    uses: ./.github/workflows/build-era4.yml
+    with:
+      tp_version: ${{ needs.detect.outputs.build_ver }}
+    secrets: inherit
+
+  build-era5:
+    needs: detect
+    if: needs.detect.outputs.era == '5'
+    uses: ./.github/workflows/build-era5.yml
+    with:
+      tp_version: ${{ needs.detect.outputs.build_ver }}
+    secrets: inherit
+
+  docker:
+    needs: [detect, build-era1, build-era2, build-era3, build-era4, build-era5]
+    if: always() && needs.detect.result == 'success' && (needs.build-era1.result == 'success' || needs.build-era2.result == 'success' || needs.build-era3.result == 'success' || needs.build-era4.result == 'success' || needs.build-era5.result == 'success')
+    uses: ./.github/workflows/docker.yml
+    with:
+      tp_version: ${{ needs.detect.outputs.build_ver }}
+    secrets: inherit

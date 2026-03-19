@@ -1,11 +1,14 @@
+name: "Check for New Versions"
+
 on:
   workflow_call:
   workflow_dispatch:
   repository_dispatch:
-    type:
+    types:
       - check
-#  schedule:
-#  - cron: '*/20 * * * *'
+
+permissions:
+  contents: write    # needed for push to ci branch
 
 env:
   REPO_UPSTREAM: https://github.com/gravitational/teleport.git
@@ -14,24 +17,19 @@ env:
 jobs:
   update:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-
     steps:
-      - name: checkout ci
-        uses: actions/checkout@main
+      - name: Checkout CI
+        uses: actions/checkout@v4
         with:
           ref: ci
           fetch-depth: 1
           token: ${{ secrets.GH_PAT }}
 
-      - name: Identify LATEST
+      - name: Identify LATEST and new versions
         run: |
           git ls-remote --tags ${{ env.REPO_UPSTREAM }} | ${{ env.AWK_FILTER_TAG }} | sort -Vru | head -n 1 > LATEST
           comm --nocheck-order -23 <(git ls-remote --tags https://github.com/${{ github.repository }} | ${{ env.AWK_FILTER_TAG }} | sort -Vu) <(sort -Vu VERSIONS | grep -v '^#') | head -n 1 >> VERSIONS
           if ! git diff-index --quiet HEAD --; then
-            echo "IF result: $?"
-            git status
             git config user.name github-actions
             git config user.email github-actions@github.com
             git add LATEST VERSIONS
