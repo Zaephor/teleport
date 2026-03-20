@@ -192,6 +192,13 @@ jobs:
           GOCACHE: ${{ github.workspace }}/.cache/go-build
         run: bash ci/scripts/build.sh
 
+      - name: Smoke test
+        env:
+          GO_OS: ${{ matrix.go_os }}
+          GO_ARCH: ${{ matrix.go_arch }}
+          REF_PWD: ${{ github.workspace }}
+        run: bash ci/scripts/smoke-test.sh
+
       - name: Package
         env:
           REF_PWD: ${{ github.workspace }}
@@ -426,6 +433,13 @@ jobs:
           GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
           GOCACHE: ${{ github.workspace }}/.cache/go-build
         run: bash ci/scripts/build.sh
+
+      - name: Smoke test
+        env:
+          GO_OS: ${{ matrix.go_os }}
+          GO_ARCH: ${{ matrix.go_arch }}
+          REF_PWD: ${{ github.workspace }}
+        run: bash ci/scripts/smoke-test.sh
 
       - name: Package
         env:
