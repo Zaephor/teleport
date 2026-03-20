@@ -22,6 +22,14 @@ fi
 
 echo "=== Building web assets"
 
+# --- Install system dependencies ---
+echo "::group::Install system dependencies"
+if command -v apt-get &>/dev/null; then
+  apt-get update -qq 2>/dev/null || true
+  apt-get install -y -qq curl ca-certificates xz-utils make git 2>/dev/null || true
+fi
+echo "::endgroup::"
+
 # --- Install Node.js ---
 NODE_VERSION=""
 if [[ -f "${SOURCE_DIR}/.nvmrc" ]]; then
@@ -42,9 +50,6 @@ if ! command -v node &>/dev/null || [[ -n "${NODE_VERSION}" ]]; then
   elif command -v brew &>/dev/null; then
     brew install node
   elif command -v apt-get &>/dev/null; then
-    apt-get update -qq 2>/dev/null || true
-    apt-get install -y -qq curl ca-certificates xz-utils 2>/dev/null || true
-
     ARCH_NODE=""
     case "$(uname -m)" in
       x86_64)  ARCH_NODE="x64" ;;
@@ -73,7 +78,7 @@ echo "npm: $(npm --version)"
 cd "${SOURCE_DIR}"
 
 if [[ -f "pnpm-lock.yaml" ]]; then
-  # v15+: pnpm monorepo
+  # v15+: pnpm monorepo — needs Rust/WASM toolchain for ironrdp-wasm
   echo "::group::Install pnpm"
   if command -v corepack &>/dev/null; then
     corepack enable
@@ -84,16 +89,25 @@ if [[ -f "pnpm-lock.yaml" ]]; then
   echo "pnpm: $(pnpm --version)"
   echo "::endgroup::"
 
-  echo "::group::pnpm install"
-  pnpm install --frozen-lockfile 2>/dev/null || pnpm install 2>/dev/null || true
+  # Install Rust toolchain for wasm build (build-ironrdp-wasm)
+  echo "::group::Install Rust toolchain"
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+  . "$HOME/.cargo/env"
+  rustup target add wasm32-unknown-unknown
+  echo "Rust: $(rustc --version)"
   echo "::endgroup::"
 
-  echo "::group::Build web UI (pnpm)"
-  pnpm build-ui-oss 2>/dev/null || true
+  # Use upstream Makefile which handles wasm-bindgen, wasm-opt, pnpm deps, and build
+  echo "::group::Build web UI (make ensure-webassets)"
+  make ensure-webassets 2>&1 || {
+    echo "WARNING: make ensure-webassets failed, falling back to pnpm build-ui-oss"
+    pnpm install --frozen-lockfile 2>/dev/null || pnpm install 2>/dev/null || true
+    pnpm build-ui-oss 2>/dev/null || true
+  }
   echo "::endgroup::"
 
 elif [[ -f "yarn.lock" ]]; then
-  # v11-v14: yarn
+  # v11-v14: yarn (predates wasm requirement)
   echo "::group::Install yarn"
   npm install -g yarn 2>/dev/null || true
   echo "yarn: $(yarn --version)"

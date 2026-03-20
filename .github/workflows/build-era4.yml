@@ -23,7 +23,59 @@ env:
   UPSTREAM: github.com/gravitational/teleport
 
 jobs:
+  build-webassets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout CI repo
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          path: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout teleport source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tp_version }}
+          path: go/src/${{ env.UPSTREAM }}
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Resolve Go version
+        id: resolve_go
+        run: |
+          GO_VERSION=$(bash ci/scripts/resolve-go.sh "${{ inputs.tp_version }}" "go/src/${{ env.UPSTREAM }}" ci)
+          echo "go_version=${GO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved Go version: ${GO_VERSION}"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: .pnpm-store
+          key: pnpm-${{ inputs.tp_version }}
+          restore-keys: pnpm-
+
+      - name: Build web assets
+        uses: docker://ubuntu:22.04
+        env:
+          REF_PWD: ${{ github.workspace }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+        with:
+          entrypoint: /bin/bash
+          args: >-
+            -c "bash ci/scripts/build-webassets.sh"
+
+      - name: Upload web assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: webassets-${{ inputs.tp_version }}
+          path: go/src/${{ env.UPSTREAM }}/webassets/
+          retention-days: 1
+
   build-core:
+    needs: [build-webassets]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     strategy:
@@ -166,23 +218,12 @@ jobs:
           cache: true
           cache-dependency-path: go/src/${{ env.UPSTREAM }}/go.sum
 
-      - name: Build web assets
-        if: ${{ (matrix.build_variant == 'full' || matrix.build_variant == 'upstream') && matrix.build_container != '' }}
-        uses: docker://ubuntu:22.04
-        env:
-          REF_PWD: ${{ github.workspace }}
-          UPSTREAM: ${{ env.UPSTREAM }}
+      - name: Download web assets
+        if: ${{ matrix.build_variant == 'full' || matrix.build_variant == 'upstream' }}
+        uses: actions/download-artifact@v4
         with:
-          entrypoint: /bin/bash
-          args: >-
-            -c "bash ci/scripts/build-webassets.sh"
-
-      - name: Build web assets (native)
-        if: ${{ (matrix.build_variant == 'full' || matrix.build_variant == 'upstream') && matrix.build_container == '' && runner.os != 'Windows' }}
-        env:
-          REF_PWD: ${{ github.workspace }}
-          UPSTREAM: ${{ env.UPSTREAM }}
-        run: bash ci/scripts/build-webassets.sh
+          name: webassets-${{ inputs.tp_version }}
+          path: go/src/${{ env.UPSTREAM }}/webassets
 
       - name: Build (ubuntu:14.04)
         if: matrix.build_container == 'ubuntu:14.04'
@@ -313,6 +354,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-extra:
+    needs: [build-webassets]
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
@@ -488,23 +530,12 @@ jobs:
           cache: true
           cache-dependency-path: go/src/${{ env.UPSTREAM }}/go.sum
 
-      - name: Build web assets
-        if: ${{ (matrix.build_variant == 'full' || matrix.build_variant == 'upstream') && matrix.build_container != '' }}
-        uses: docker://ubuntu:22.04
-        env:
-          REF_PWD: ${{ github.workspace }}
-          UPSTREAM: ${{ env.UPSTREAM }}
+      - name: Download web assets
+        if: ${{ matrix.build_variant == 'full' || matrix.build_variant == 'upstream' }}
+        uses: actions/download-artifact@v4
         with:
-          entrypoint: /bin/bash
-          args: >-
-            -c "bash ci/scripts/build-webassets.sh"
-
-      - name: Build web assets (native)
-        if: ${{ (matrix.build_variant == 'full' || matrix.build_variant == 'upstream') && matrix.build_container == '' && runner.os != 'Windows' }}
-        env:
-          REF_PWD: ${{ github.workspace }}
-          UPSTREAM: ${{ env.UPSTREAM }}
-        run: bash ci/scripts/build-webassets.sh
+          name: webassets-${{ inputs.tp_version }}
+          path: go/src/${{ env.UPSTREAM }}/webassets
 
       - name: Build (ubuntu:14.04)
         if: matrix.build_container == 'ubuntu:14.04'
@@ -635,8 +666,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   docker:
-    needs: build-core
-    if: always() && needs.build-core.result == 'success'
+    needs: [build-core, build-extra]
+    if: always() && (needs.build-core.result == 'success' || needs.build-extra.result == 'success')
     uses: ./.github/workflows/docker.yml
     with:
       tp_version: ${{ inputs.tp_version }}
