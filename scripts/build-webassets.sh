@@ -1,49 +1,50 @@
 #!/bin/bash
-# build-webassets.sh — Build teleport web UI assets for the "full" build variant
-# Must run inside the build container before build.sh
+# build-webassets.sh — Build teleport web UI assets for full/upstream variants
+# Must run before build.sh so that webassets/teleport/ exists for go:embed
 # Environment variables: REF_PWD, UPSTREAM
 set -eo pipefail
 
 SOURCE_DIR="${REF_PWD}/go/src/${UPSTREAM}"
 
-# Check if web/ directory exists (older versions don't have it)
-if [[ ! -f "${SOURCE_DIR}/web/package.json" ]]; then
-  echo "WARNING: web/package.json not found — skipping webassets build (old teleport version?)"
-  echo "The webassets_embed tag will be harmless on versions without embed files."
+# Check if this version supports webassets embedding
+# v11+ has webassets_embed.go at root with //go:embed webassets/teleport
+if [[ ! -f "${SOURCE_DIR}/webassets_embed.go" ]]; then
+  echo "WARNING: webassets_embed.go not found — this version doesn't support embedded web assets"
+  exit 0
+fi
+
+# Detect package manager: pnpm (v15+) or yarn (v11-v14)
+# The package.json is at the repo root (monorepo), not in web/
+if [[ ! -f "${SOURCE_DIR}/package.json" ]]; then
+  echo "WARNING: package.json not found at repo root — skipping webassets build"
   exit 0
 fi
 
 echo "=== Building web assets"
 
 # --- Install Node.js ---
-# Check for .nvmrc or package.json engines field
 NODE_VERSION=""
 if [[ -f "${SOURCE_DIR}/.nvmrc" ]]; then
   NODE_VERSION=$(cat "${SOURCE_DIR}/.nvmrc" | tr -d 'v \n')
   echo "Node version from .nvmrc: ${NODE_VERSION}"
 fi
 
-# Install Node.js via NodeSource or pre-built binaries
 if ! command -v node &>/dev/null || [[ -n "${NODE_VERSION}" ]]; then
   echo "::group::Install Node.js"
   if [[ -z "${NODE_VERSION}" ]]; then
     NODE_VERSION="20"
   fi
 
-  # Use major version for NodeSource setup
   NODE_MAJOR="${NODE_VERSION%%.*}"
 
-  # Try multiple installation methods
   if command -v node &>/dev/null; then
     : # already available (macOS runners have Node.js pre-installed)
   elif command -v brew &>/dev/null; then
     brew install node
   elif command -v apt-get &>/dev/null; then
-    # Debian/Ubuntu: install from NodeSource or download binary
     apt-get update -qq 2>/dev/null || true
-    apt-get install -y -qq curl ca-certificates 2>/dev/null || true
+    apt-get install -y -qq curl ca-certificates xz-utils 2>/dev/null || true
 
-    # Download pre-built Node.js binary
     ARCH_NODE=""
     case "$(uname -m)" in
       x86_64)  ARCH_NODE="x64" ;;
@@ -52,7 +53,6 @@ if ! command -v node &>/dev/null || [[ -n "${NODE_VERSION}" ]]; then
       *)       ARCH_NODE="x64" ;;
     esac
     NODE_DL_VER="${NODE_VERSION}"
-    # If only major version, resolve to latest LTS
     if [[ ! "${NODE_DL_VER}" =~ \. ]]; then
       NODE_DL_VER=$(curl -fsSL "https://nodejs.org/dist/latest-v${NODE_MAJOR}.x/" 2>/dev/null | grep -oP 'node-v\K[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
       if [[ -z "${NODE_DL_VER}" ]]; then
@@ -69,51 +69,64 @@ fi
 echo "Node.js: $(node --version)"
 echo "npm: $(npm --version)"
 
-# --- Install pnpm via corepack ---
-echo "::group::Install pnpm"
-if command -v corepack &>/dev/null; then
-  corepack enable
-  corepack prepare --activate 2>/dev/null || corepack prepare pnpm@latest --activate 2>/dev/null || true
-else
-  npm install -g pnpm 2>/dev/null || true
-fi
-echo "pnpm: $(pnpm --version)"
-echo "::endgroup::"
-
-# --- Install web dependencies ---
-echo "::group::pnpm install"
+# --- Install package manager and build ---
 cd "${SOURCE_DIR}"
 
-# Some versions use yarn instead of pnpm
-if [[ -f "yarn.lock" && ! -f "pnpm-lock.yaml" ]]; then
-  echo "Detected yarn.lock (no pnpm-lock.yaml) — using yarn"
-  npm install -g yarn 2>/dev/null || true
-  yarn install --frozen-lockfile 2>/dev/null || yarn install 2>/dev/null || true
+if [[ -f "pnpm-lock.yaml" ]]; then
+  # v15+: pnpm monorepo
+  echo "::group::Install pnpm"
+  if command -v corepack &>/dev/null; then
+    corepack enable
+    corepack prepare --activate 2>/dev/null || corepack prepare pnpm@latest --activate 2>/dev/null || true
+  else
+    npm install -g pnpm 2>/dev/null || true
+  fi
+  echo "pnpm: $(pnpm --version)"
   echo "::endgroup::"
 
-  echo "::group::Build web UI (yarn)"
-  yarn build-ui-oss 2>/dev/null || make -C web build 2>/dev/null || true
-  echo "::endgroup::"
-else
+  echo "::group::pnpm install"
   pnpm install --frozen-lockfile 2>/dev/null || pnpm install 2>/dev/null || true
   echo "::endgroup::"
 
   echo "::group::Build web UI (pnpm)"
-  pnpm build-ui-oss 2>/dev/null || make -C web build 2>/dev/null || true
+  pnpm build-ui-oss 2>/dev/null || true
+  echo "::endgroup::"
+
+elif [[ -f "yarn.lock" ]]; then
+  # v11-v14: yarn
+  echo "::group::Install yarn"
+  npm install -g yarn 2>/dev/null || true
+  echo "yarn: $(yarn --version)"
+  echo "::endgroup::"
+
+  echo "::group::yarn install"
+  yarn install --frozen-lockfile 2>/dev/null || yarn install 2>/dev/null || true
+  echo "::endgroup::"
+
+  echo "::group::Build web UI (yarn)"
+  yarn build-ui-oss 2>/dev/null || true
+  echo "::endgroup::"
+
+else
+  echo "WARNING: No lockfile found (pnpm-lock.yaml or yarn.lock) — trying make"
+  echo "::group::Build web UI (make)"
+  make -C web build 2>/dev/null || true
   echo "::endgroup::"
 fi
 
-# --- Strip source maps ---
+# --- Strip source maps (save ~50MB+ in the binary) ---
 echo "::group::Strip source maps"
 find webassets/ -name '*.map' -delete 2>/dev/null || true
 echo "::endgroup::"
 
 # --- Report ---
-if [[ -d "webassets/teleport" ]]; then
-  echo "=== Web assets built successfully"
-  du -sh webassets/teleport/
+if [[ -d "webassets/teleport" ]] && [[ -n "$(ls -A webassets/teleport/ 2>/dev/null)" ]]; then
+  ASSETS_SIZE=$(du -sh webassets/teleport/ | cut -f1)
+  ASSETS_COUNT=$(find webassets/teleport/ -type f | wc -l)
+  echo "=== Web assets built successfully (${ASSETS_SIZE}, ${ASSETS_COUNT} files)"
 else
-  echo "WARNING: webassets/teleport/ directory not found after build"
-  echo "The full variant may not include web UI. Listing webassets/:"
+  echo "ERROR: webassets/teleport/ is missing or empty after build"
+  echo "The full/upstream variant will NOT include web UI."
   ls -la webassets/ 2>/dev/null || echo "  (webassets/ does not exist)"
+  exit 1
 fi
