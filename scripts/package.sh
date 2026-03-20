@@ -16,7 +16,14 @@ ARTIFACTS_DIR="${BASE_DIR}/artifacts"
 mkdir -p "${ARTIFACTS_DIR}"
 
 # ARCH_NAME is already the full platform identifier (e.g. linux-amd64, darwin-arm64)
-PLATFORM_NAME="${ARCH_NAME}"
+# BUILD_VARIANT controls artifact naming suffix
+BUILD_VARIANT="${BUILD_VARIANT:-}"
+case "${BUILD_VARIANT}" in
+  full)     PLATFORM_NAME="${ARCH_NAME}-full" ;;
+  upstream) PLATFORM_NAME="${ARCH_NAME}-bin" ;;
+  pam)      PLATFORM_NAME="${ARCH_NAME}-pam" ;;
+  *)        PLATFORM_NAME="${ARCH_NAME}" ;;
+esac
 
 echo "=== Packaging ${VERSION} for ${PLATFORM_NAME}"
 

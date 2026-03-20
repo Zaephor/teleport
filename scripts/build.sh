@@ -85,6 +85,24 @@ if [[ "${PAM:-true}" == "true" && "${GO_OS}" == "linux" ]]; then
   PAM_TAG="pam"
 fi
 
+# --- Build variant (full/upstream/pam/lite) ---
+BUILD_VARIANT="${BUILD_VARIANT:-}"
+WEBASSETS_TAG=""
+VARIANT_PAM_OVERRIDE=""
+
+case "${BUILD_VARIANT}" in
+  full|upstream)
+    # webassets resolved after cd to SOURCE_DIR
+    ;;
+  pam)
+    # PAM only, no webassets
+    ;;
+  lite|"")
+    # No PAM, no webassets — lighter binaries for agents
+    VARIANT_PAM_OVERRIDE="disabled"
+    ;;
+esac
+
 # --- Version injection ldflags (match upstream -X flags) ---
 # Silently ignored by older Go/teleport versions if the symbol path doesn't exist
 VERSION_LDFLAGS="-X github.com/gravitational/teleport/lib/modules.teleportBuildType=community"
@@ -169,6 +187,22 @@ mkdir -p "${REF_PWD}/dist/teleport"
 git config --global --add safe.directory "${SOURCE_DIR}"
 cd "${SOURCE_DIR}"
 
+# Resolve webassets_embed tag now that SOURCE_DIR is available
+if [[ "${BUILD_VARIANT}" == "full" || "${BUILD_VARIANT}" == "upstream" ]]; then
+  if [[ -d "webassets/teleport" ]] && [[ -n "$(ls -A webassets/teleport/ 2>/dev/null)" ]]; then
+    WEBASSETS_TAG="webassets_embed"
+    echo "=== ${BUILD_VARIANT} variant: webassets_embed tag enabled"
+  else
+    echo "WARNING: BUILD_VARIANT=${BUILD_VARIANT} but webassets/teleport/ is missing or empty"
+    echo "  Proceeding without webassets_embed tag (old version or build-webassets.sh failed)"
+  fi
+fi
+
+# Override PAM for lite variant
+if [[ "${VARIANT_PAM_OVERRIDE}" == "disabled" ]]; then
+  PAM_TAG=""
+fi
+
 echo "::group::go env"
 go env
 echo "::endgroup::"
@@ -233,8 +267,11 @@ else
         BINARY_CGO=0
         BINARY_TAGS=""
         ;;
-      tctl|teleport)
+      tctl)
         BINARY_TAGS="${PAM_TAG} ${BASE_TAGS}"
+        ;;
+      teleport)
+        BINARY_TAGS="${PAM_TAG} ${WEBASSETS_TAG} ${BASE_TAGS}"
         ;;
       tsh)
         # Upstream: tsh doesn't use pam tag

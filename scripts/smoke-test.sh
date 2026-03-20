@@ -77,21 +77,21 @@ if [[ -n "${BUILD_VARIANT}" && -f "${DIST_DIR}/teleport" ]]; then
   TELEPORT_SIZE=$(stat -c%s "${DIST_DIR}/teleport" 2>/dev/null || stat -f%z "${DIST_DIR}/teleport" 2>/dev/null || echo "0")
   TELEPORT_SIZE_MB=$((TELEPORT_SIZE / 1048576))
   echo "=== Smoke test: variant size check (variant=${BUILD_VARIANT}, teleport=${TELEPORT_SIZE_MB}MB)"
-  if [[ "${BUILD_VARIANT}" == "full" ]]; then
-    if [[ "${TELEPORT_SIZE_MB}" -lt 250 ]]; then
-      echo "  FAIL: full variant teleport binary is only ${TELEPORT_SIZE_MB}MB (expected >250MB with webassets)"
-      FAIL=1
-    else
-      echo "  OK: full variant size ${TELEPORT_SIZE_MB}MB"
-    fi
-  elif [[ "${BUILD_VARIANT}" == "edge" ]]; then
-    if [[ "${TELEPORT_SIZE_MB}" -gt 200 ]]; then
-      echo "  FAIL: edge variant teleport binary is ${TELEPORT_SIZE_MB}MB (expected <200MB without webassets)"
-      FAIL=1
-    else
-      echo "  OK: edge variant size ${TELEPORT_SIZE_MB}MB"
-    fi
-  fi
+  case "${BUILD_VARIANT}" in
+    full|upstream)
+      # Should have webassets embedded — sanity check minimum size
+      if [[ "${TELEPORT_SIZE_MB}" -lt 250 ]]; then
+        echo "  FAIL: ${BUILD_VARIANT} variant teleport binary is only ${TELEPORT_SIZE_MB}MB (expected >250MB with webassets)"
+        FAIL=1
+      else
+        echo "  OK: ${BUILD_VARIANT} variant size ${TELEPORT_SIZE_MB}MB"
+      fi
+      ;;
+    *)
+      # pam/lite: no webassets tag, just report size (no upper bound — modern teleport is large)
+      echo "  OK: ${BUILD_VARIANT:-lite} variant size ${TELEPORT_SIZE_MB}MB"
+      ;;
+  esac
 fi
 
 # --- Launch test (linux-amd64 native only) ---

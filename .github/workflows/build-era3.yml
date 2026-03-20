@@ -39,6 +39,7 @@ jobs:
             pam: "true"
             cc: ""
             runner: ubuntu-latest
+            build_variant: ""
           - name: linux-arm64
             go_os: linux
             go_arch: arm64
@@ -48,6 +49,67 @@ jobs:
             pam: "true"
             cc: aarch64-linux-gnu-gcc
             runner: ubuntu-latest
+            build_variant: ""
+          - name: linux-amd64-full
+            go_os: linux
+            go_arch: amd64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:14.04
+            pam: "true"
+            cc: ""
+            runner: ubuntu-latest
+            build_variant: "full"
+          - name: linux-arm64-full
+            go_os: linux
+            go_arch: arm64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:20.04
+            pam: "true"
+            cc: aarch64-linux-gnu-gcc
+            runner: ubuntu-latest
+            build_variant: "full"
+          - name: linux-amd64-upstream
+            go_os: linux
+            go_arch: amd64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:14.04
+            pam: "true"
+            cc: ""
+            runner: ubuntu-latest
+            build_variant: "upstream"
+          - name: linux-arm64-upstream
+            go_os: linux
+            go_arch: arm64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:20.04
+            pam: "true"
+            cc: aarch64-linux-gnu-gcc
+            runner: ubuntu-latest
+            build_variant: "upstream"
+          - name: linux-amd64-pam
+            go_os: linux
+            go_arch: amd64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:14.04
+            pam: "true"
+            cc: ""
+            runner: ubuntu-latest
+            build_variant: "pam"
+          - name: linux-arm64-pam
+            go_os: linux
+            go_arch: arm64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:20.04
+            pam: "true"
+            cc: aarch64-linux-gnu-gcc
+            runner: ubuntu-latest
+            build_variant: "pam"
 
     steps:
       - name: Checkout CI repo
@@ -104,6 +166,24 @@ jobs:
           cache: true
           cache-dependency-path: go/src/${{ env.UPSTREAM }}/go.sum
 
+      - name: Build web assets
+        if: ${{ (matrix.build_variant == 'full' || matrix.build_variant == 'upstream') && matrix.build_container != '' }}
+        uses: docker://ubuntu:22.04
+        env:
+          REF_PWD: ${{ github.workspace }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+        with:
+          entrypoint: /bin/bash
+          args: >-
+            -c "bash ci/scripts/build-webassets.sh"
+
+      - name: Build web assets (native)
+        if: ${{ (matrix.build_variant == 'full' || matrix.build_variant == 'upstream') && matrix.build_container == '' && runner.os != 'Windows' }}
+        env:
+          REF_PWD: ${{ github.workspace }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+        run: bash ci/scripts/build-webassets.sh
+
       - name: Build (ubuntu:14.04)
         if: matrix.build_container == 'ubuntu:14.04'
         uses: docker://ubuntu:14.04
@@ -122,6 +202,7 @@ jobs:
           GOPATH: ${{ github.workspace }}/go
           GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
           GOCACHE: ${{ github.workspace }}/.cache/go-build
+          BUILD_VARIANT: ${{ matrix.build_variant }}
         with:
           entrypoint: /bin/bash
           args: >-
@@ -145,6 +226,7 @@ jobs:
           GOPATH: ${{ github.workspace }}/go
           GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
           GOCACHE: ${{ github.workspace }}/.cache/go-build
+          BUILD_VARIANT: ${{ matrix.build_variant }}
         with:
           entrypoint: /bin/bash
           args: >-
@@ -168,6 +250,7 @@ jobs:
           GOPATH: ${{ github.workspace }}/go
           GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
           GOCACHE: ${{ github.workspace }}/.cache/go-build
+          BUILD_VARIANT: ${{ matrix.build_variant }}
         with:
           entrypoint: /bin/bash
           args: >-
@@ -190,6 +273,7 @@ jobs:
           GOPATH: ${{ github.workspace }}/go
           GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
           GOCACHE: ${{ github.workspace }}/.cache/go-build
+          BUILD_VARIANT: ${{ matrix.build_variant }}
         run: bash ci/scripts/build.sh
 
       - name: Smoke test
@@ -197,11 +281,13 @@ jobs:
           GO_OS: ${{ matrix.go_os }}
           GO_ARCH: ${{ matrix.go_arch }}
           REF_PWD: ${{ github.workspace }}
+          BUILD_VARIANT: ${{ matrix.build_variant }}
         run: bash ci/scripts/smoke-test.sh
 
       - name: Package
         env:
           REF_PWD: ${{ github.workspace }}
+          BUILD_VARIANT: ${{ matrix.build_variant }}
         run: |
           if [[ "$RUNNER_OS" == "Linux" ]]; then
             sudo chown -R $(id -u):$(id -g) "${{ github.workspace }}/dist" || true
@@ -245,6 +331,7 @@ jobs:
             pam: "true"
             cc: ""
             runner: ubuntu-latest
+            build_variant: ""
           - name: linux-armhf
             go_os: linux
             go_arch: arm
@@ -254,6 +341,7 @@ jobs:
             pam: "true"
             cc: arm-linux-gnueabihf-gcc
             runner: ubuntu-latest
+            build_variant: ""
           - name: linux-armel
             go_os: linux
             go_arch: arm
@@ -263,6 +351,7 @@ jobs:
             pam: "true"
             cc: arm-linux-gnueabi-gcc
             runner: ubuntu-latest
+            build_variant: ""
           - name: darwin-amd64
             go_os: darwin
             go_arch: amd64
@@ -272,6 +361,7 @@ jobs:
             pam: "false"
             cc: ""
             runner: macos-14
+            build_variant: ""
           - name: darwin-arm64
             go_os: darwin
             go_arch: arm64
@@ -281,6 +371,7 @@ jobs:
             pam: "false"
             cc: ""
             runner: macos-14
+            build_variant: ""
           - name: windows-amd64
             go_os: windows
             go_arch: amd64
@@ -290,6 +381,57 @@ jobs:
             pam: "false"
             cc: ""
             runner: windows-latest
+            build_variant: ""
+          - name: linux-i386-pam
+            go_os: linux
+            go_arch: "386"
+            go_arm: ""
+            go_experiment: ""
+            build_container: ubuntu:14.04
+            pam: "true"
+            cc: ""
+            runner: ubuntu-latest
+            build_variant: "pam"
+          - name: linux-armhf-pam
+            go_os: linux
+            go_arch: arm
+            go_arm: "6"
+            go_experiment: nounified
+            build_container: ubuntu:22.04
+            pam: "true"
+            cc: arm-linux-gnueabihf-gcc
+            runner: ubuntu-latest
+            build_variant: "pam"
+          - name: linux-armel-pam
+            go_os: linux
+            go_arch: arm
+            go_arm: "5"
+            go_experiment: ""
+            build_container: ubuntu:22.04
+            pam: "true"
+            cc: arm-linux-gnueabi-gcc
+            runner: ubuntu-latest
+            build_variant: "pam"
+          - name: darwin-amd64-upstream
+            go_os: darwin
+            go_arch: amd64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ""
+            pam: "false"
+            cc: ""
+            runner: macos-14
+            build_variant: "upstream"
+          - name: darwin-arm64-upstream
+            go_os: darwin
+            go_arch: arm64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ""
+            pam: "false"
+            cc: ""
+            runner: macos-14
+            build_variant: "upstream"
 
     steps:
       - name: Checkout CI repo
@@ -346,6 +488,24 @@ jobs:
           cache: true
           cache-dependency-path: go/src/${{ env.UPSTREAM }}/go.sum
 
+      - name: Build web assets
+        if: ${{ (matrix.build_variant == 'full' || matrix.build_variant == 'upstream') && matrix.build_container != '' }}
+        uses: docker://ubuntu:22.04
+        env:
+          REF_PWD: ${{ github.workspace }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+        with:
+          entrypoint: /bin/bash
+          args: >-
+            -c "bash ci/scripts/build-webassets.sh"
+
+      - name: Build web assets (native)
+        if: ${{ (matrix.build_variant == 'full' || matrix.build_variant == 'upstream') && matrix.build_container == '' && runner.os != 'Windows' }}
+        env:
+          REF_PWD: ${{ github.workspace }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+        run: bash ci/scripts/build-webassets.sh
+
       - name: Build (ubuntu:14.04)
         if: matrix.build_container == 'ubuntu:14.04'
         uses: docker://ubuntu:14.04
@@ -364,6 +524,7 @@ jobs:
           GOPATH: ${{ github.workspace }}/go
           GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
           GOCACHE: ${{ github.workspace }}/.cache/go-build
+          BUILD_VARIANT: ${{ matrix.build_variant }}
         with:
           entrypoint: /bin/bash
           args: >-
@@ -387,6 +548,7 @@ jobs:
           GOPATH: ${{ github.workspace }}/go
           GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
           GOCACHE: ${{ github.workspace }}/.cache/go-build
+          BUILD_VARIANT: ${{ matrix.build_variant }}
         with:
           entrypoint: /bin/bash
           args: >-
@@ -410,6 +572,7 @@ jobs:
           GOPATH: ${{ github.workspace }}/go
           GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
           GOCACHE: ${{ github.workspace }}/.cache/go-build
+          BUILD_VARIANT: ${{ matrix.build_variant }}
         with:
           entrypoint: /bin/bash
           args: >-
@@ -432,6 +595,7 @@ jobs:
           GOPATH: ${{ github.workspace }}/go
           GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
           GOCACHE: ${{ github.workspace }}/.cache/go-build
+          BUILD_VARIANT: ${{ matrix.build_variant }}
         run: bash ci/scripts/build.sh
 
       - name: Smoke test
@@ -439,11 +603,13 @@ jobs:
           GO_OS: ${{ matrix.go_os }}
           GO_ARCH: ${{ matrix.go_arch }}
           REF_PWD: ${{ github.workspace }}
+          BUILD_VARIANT: ${{ matrix.build_variant }}
         run: bash ci/scripts/smoke-test.sh
 
       - name: Package
         env:
           REF_PWD: ${{ github.workspace }}
+          BUILD_VARIANT: ${{ matrix.build_variant }}
         run: |
           if [[ "$RUNNER_OS" == "Linux" ]]; then
             sudo chown -R $(id -u):$(id -g) "${{ github.workspace }}/dist" || true
