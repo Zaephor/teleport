@@ -22,7 +22,7 @@ RUN set -eux; \
       armhf)  ARTIFACT_ARCH="linux-armhf" ;; \
       *)      echo "Unsupported arch: ${ARCH}"; exit 1 ;; \
     esac; \
-    URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE}/teleport-${RELEASE}-${ARTIFACT_ARCH}.tar.gz"; \
+    URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE}/teleport-${RELEASE}-${ARTIFACT_ARCH}-bin.tar.gz"; \
     curl -fsSL "${URL}" -o /tmp/teleport.tar.gz; \
     tar -xzf /tmp/teleport.tar.gz -C /usr/local/bin --strip-components=1 \
       teleport/teleport teleport/tctl teleport/tsh; \
@@ -35,6 +35,9 @@ RUN set -eux; \
 
 EXPOSE 3022 3023 3024 3025 3026 3080
 VOLUME /var/lib/teleport
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD ["tctl", "status"]
 
 ENTRYPOINT ["teleport", "start"]
 CMD ["-c", "/etc/teleport.yaml"]

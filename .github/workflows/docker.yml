@@ -43,7 +43,7 @@ jobs:
             ARCH_NAME="${mapping%,*}"
             DOCKER_PLAT="${mapping#*,}"
             STATUS=$(curl -sI --connect-timeout 10 --max-time 30 -o /dev/null -w "%{http_code}" \
-              "https://github.com/${{ github.repository }}/releases/download/${{ inputs.tp_version }}/teleport-${{ inputs.tp_version }}-linux-${ARCH_NAME}.tar.gz")
+              "https://github.com/${{ github.repository }}/releases/download/${{ inputs.tp_version }}/teleport-${{ inputs.tp_version }}-linux-${ARCH_NAME}-bin.tar.gz")
             if [[ "${STATUS}" == "200" || "${STATUS}" == "302" ]]; then
               if [[ -n "${ARCHES}" ]]; then ARCHES+=","; fi
               ARCHES+="${DOCKER_PLAT}"
@@ -130,7 +130,7 @@ jobs:
             ARCH_NAME="${mapping%,*}"
             DOCKER_PLAT="${mapping#*,}"
             STATUS=$(curl -sI --connect-timeout 10 --max-time 30 -o /dev/null -w "%{http_code}" \
-              "https://github.com/${{ github.repository }}/releases/download/${{ inputs.tp_version }}/teleport-${{ inputs.tp_version }}-linux-${ARCH_NAME}.tar.gz")
+              "https://github.com/${{ github.repository }}/releases/download/${{ inputs.tp_version }}/teleport-${{ inputs.tp_version }}-linux-${ARCH_NAME}-bin.tar.gz")
             if [[ "${STATUS}" == "200" || "${STATUS}" == "302" ]]; then
               if [[ -n "${ARCHES}" ]]; then ARCHES+=","; fi
               ARCHES+="${DOCKER_PLAT}"
