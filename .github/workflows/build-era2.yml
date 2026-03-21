@@ -91,7 +91,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: linux-amd64
+          - name: linux-amd64-lite
             go_os: linux
             go_arch: amd64
             go_arm: ""
@@ -100,8 +100,8 @@ jobs:
             pam: "true"
             cc: ""
             runner: ubuntu-latest
-            build_variant: ""
-          - name: linux-arm64
+            build_variant: "lite"
+          - name: linux-arm64-lite
             go_os: linux
             go_arch: arm64
             go_arm: ""
@@ -110,7 +110,7 @@ jobs:
             pam: "true"
             cc: aarch64-linux-gnu-gcc
             runner: ubuntu-latest
-            build_variant: ""
+            build_variant: "lite"
           - name: linux-amd64-full
             go_os: linux
             go_arch: amd64
@@ -373,7 +373,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: linux-i386
+          - name: linux-i386-lite
             go_os: linux
             go_arch: "386"
             go_arm: ""
@@ -382,8 +382,8 @@ jobs:
             pam: "true"
             cc: ""
             runner: ubuntu-latest
-            build_variant: ""
-          - name: linux-armhf
+            build_variant: "lite"
+          - name: linux-armhf-lite
             go_os: linux
             go_arch: arm
             go_arm: "6"
@@ -392,8 +392,8 @@ jobs:
             pam: "true"
             cc: arm-linux-gnueabihf-gcc
             runner: ubuntu-latest
-            build_variant: ""
-          - name: linux-armel
+            build_variant: "lite"
+          - name: linux-armel-lite
             go_os: linux
             go_arch: arm
             go_arm: "5"
@@ -402,8 +402,8 @@ jobs:
             pam: "true"
             cc: arm-linux-gnueabi-gcc
             runner: ubuntu-latest
-            build_variant: ""
-          - name: darwin-amd64
+            build_variant: "lite"
+          - name: darwin-amd64-lite
             go_os: darwin
             go_arch: amd64
             go_arm: ""
@@ -412,8 +412,8 @@ jobs:
             pam: "false"
             cc: ""
             runner: macos-14
-            build_variant: ""
-          - name: darwin-arm64
+            build_variant: "lite"
+          - name: darwin-arm64-lite
             go_os: darwin
             go_arch: arm64
             go_arm: ""
@@ -422,8 +422,8 @@ jobs:
             pam: "false"
             cc: ""
             runner: macos-14
-            build_variant: ""
-          - name: windows-amd64
+            build_variant: "lite"
+          - name: windows-amd64-lite
             go_os: windows
             go_arch: amd64
             go_arm: ""
@@ -432,7 +432,7 @@ jobs:
             pam: "false"
             cc: ""
             runner: windows-latest
-            build_variant: ""
+            build_variant: "lite"
           - name: linux-i386-pam
             go_os: linux
             go_arch: "386"

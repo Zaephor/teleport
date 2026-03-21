@@ -97,7 +97,7 @@ case "${BUILD_VARIANT}" in
   pam)
     # PAM only, no webassets
     ;;
-  lite|"")
+  lite)
     # No PAM, no webassets — lighter binaries for agents
     VARIANT_PAM_OVERRIDE="disabled"
     ;;

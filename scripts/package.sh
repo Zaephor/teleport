@@ -27,7 +27,8 @@ case "${BUILD_VARIANT}" in
   upstream) PLATFORM_NAME="${CLEAN_ARCH}-bin" ;;
   full)     PLATFORM_NAME="${CLEAN_ARCH}-full" ;;
   pam)      PLATFORM_NAME="${CLEAN_ARCH}-pam" ;;
-  lite|"")  PLATFORM_NAME="${CLEAN_ARCH}-lite" ;;
+  lite)     PLATFORM_NAME="${CLEAN_ARCH}-lite" ;;
+  *)        echo "ERROR: Unknown BUILD_VARIANT '${BUILD_VARIANT}'" >&2; exit 1 ;;
 esac
 
 # DEB/RPM: variant goes in package name, not arch
@@ -35,7 +36,7 @@ case "${BUILD_VARIANT}" in
   upstream) PKG_NAME="teleport" ;;
   full)     PKG_NAME="teleport-full" ;;
   pam)      PKG_NAME="teleport-pam" ;;
-  lite|"")  PKG_NAME="teleport-lite" ;;
+  lite)     PKG_NAME="teleport-lite" ;;
 esac
 
 echo "=== Packaging ${VERSION} for ${PLATFORM_NAME}"
