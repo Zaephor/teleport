@@ -50,7 +50,15 @@ jobs:
           echo "go_version=${GO_VERSION}" >> "$GITHUB_OUTPUT"
           echo "Resolved Go version: ${GO_VERSION}"
 
+      - name: Cache webassets
+        id: webassets-cache
+        uses: actions/cache@v4
+        with:
+          path: go/src/${{ env.UPSTREAM }}/webassets/
+          key: webassets-${{ inputs.tp_version }}
+
       - name: Cache pnpm store
+        if: steps.webassets-cache.outputs.cache-hit != 'true'
         uses: actions/cache@v4
         with:
           path: .pnpm-store
@@ -58,6 +66,7 @@ jobs:
           restore-keys: pnpm-
 
       - name: Build web assets
+        if: steps.webassets-cache.outputs.cache-hit != 'true'
         uses: docker://ubuntu:22.04
         env:
           REF_PWD: ${{ github.workspace }}
