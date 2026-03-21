@@ -27,7 +27,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Cache webassets
+        id: webassets-cache
+        uses: actions/cache@v4
+        with:
+          path: cached-webassets
+          key: webassets-${{ inputs.tp_version }}
+
+      - name: Restore cached webassets
+        if: steps.webassets-cache.outputs.cache-hit == 'true'
+        run: |
+          mkdir -p go/src/${{ env.UPSTREAM }}/webassets
+          cp -r cached-webassets/* go/src/${{ env.UPSTREAM }}/webassets/
+
       - name: Checkout CI repo
+        if: steps.webassets-cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           ref: ci
@@ -36,26 +50,13 @@ jobs:
           token: ${{ secrets.GH_PAT }}
 
       - name: Checkout teleport source
+        if: steps.webassets-cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tp_version }}
           path: go/src/${{ env.UPSTREAM }}
           fetch-depth: 1
           token: ${{ secrets.GH_PAT }}
-
-      - name: Resolve Go version
-        id: resolve_go
-        run: |
-          GO_VERSION=$(bash ci/scripts/resolve-go.sh "${{ inputs.tp_version }}" "go/src/${{ env.UPSTREAM }}" ci)
-          echo "go_version=${GO_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Resolved Go version: ${GO_VERSION}"
-
-      - name: Cache webassets
-        id: webassets-cache
-        uses: actions/cache@v4
-        with:
-          path: go/src/${{ env.UPSTREAM }}/webassets/
-          key: webassets-${{ inputs.tp_version }}
 
       - name: Cache pnpm store
         if: steps.webassets-cache.outputs.cache-hit != 'true'
@@ -75,6 +76,12 @@ jobs:
           entrypoint: /bin/bash
           args: >-
             -c "bash ci/scripts/build-webassets.sh"
+
+      - name: Save webassets to cache path
+        if: steps.webassets-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p cached-webassets
+          cp -r go/src/${{ env.UPSTREAM }}/webassets/* cached-webassets/
 
       - name: Upload web assets
         uses: actions/upload-artifact@v4
@@ -111,26 +118,6 @@ jobs:
             cc: aarch64-linux-gnu-gcc
             runner: ubuntu-latest
             build_variant: "lite"
-          - name: linux-amd64-full
-            go_os: linux
-            go_arch: amd64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ubuntu:14.04
-            pam: "true"
-            cc: ""
-            runner: ubuntu-latest
-            build_variant: "full"
-          - name: linux-arm64-full
-            go_os: linux
-            go_arch: arm64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ubuntu:20.04
-            pam: "true"
-            cc: aarch64-linux-gnu-gcc
-            runner: ubuntu-latest
-            build_variant: "full"
           - name: linux-amd64-upstream
             go_os: linux
             go_arch: amd64
@@ -228,7 +215,7 @@ jobs:
           cache-dependency-path: go/src/${{ env.UPSTREAM }}/go.sum
 
       - name: Download web assets
-        if: ${{ matrix.build_variant == 'full' || matrix.build_variant == 'upstream' }}
+        if: ${{ matrix.build_variant == 'upstream' }}
         uses: actions/download-artifact@v4
         with:
           name: webassets-${{ inputs.tp_version }}
@@ -332,6 +319,7 @@ jobs:
           GO_ARCH: ${{ matrix.go_arch }}
           REF_PWD: ${{ github.workspace }}
           BUILD_VARIANT: ${{ matrix.build_variant }}
+          TP_VERSION: ${{ inputs.tp_version }}
         run: bash ci/scripts/smoke-test.sh
 
       - name: Package
@@ -540,7 +528,7 @@ jobs:
           cache-dependency-path: go/src/${{ env.UPSTREAM }}/go.sum
 
       - name: Download web assets
-        if: ${{ matrix.build_variant == 'full' || matrix.build_variant == 'upstream' }}
+        if: ${{ matrix.build_variant == 'upstream' }}
         uses: actions/download-artifact@v4
         with:
           name: webassets-${{ inputs.tp_version }}
@@ -644,6 +632,7 @@ jobs:
           GO_ARCH: ${{ matrix.go_arch }}
           REF_PWD: ${{ github.workspace }}
           BUILD_VARIANT: ${{ matrix.build_variant }}
+          TP_VERSION: ${{ inputs.tp_version }}
         run: bash ci/scripts/smoke-test.sh
 
       - name: Package

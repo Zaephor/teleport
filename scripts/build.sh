@@ -91,7 +91,7 @@ WEBASSETS_TAG=""
 VARIANT_PAM_OVERRIDE=""
 
 case "${BUILD_VARIANT}" in
-  full|upstream)
+  upstream)
     # webassets resolved after cd to SOURCE_DIR
     ;;
   pam)
@@ -188,13 +188,24 @@ git config --global --add safe.directory "${SOURCE_DIR}"
 cd "${SOURCE_DIR}"
 
 # Resolve webassets_embed tag now that SOURCE_DIR is available
-if [[ "${BUILD_VARIANT}" == "full" || "${BUILD_VARIANT}" == "upstream" ]]; then
-  if [[ -d "webassets/teleport" ]] && [[ -n "$(ls -A webassets/teleport/ 2>/dev/null)" ]]; then
-    WEBASSETS_TAG="webassets_embed"
-    echo "=== ${BUILD_VARIANT} variant: webassets_embed tag enabled"
-  else
-    echo "WARNING: BUILD_VARIANT=${BUILD_VARIANT} but webassets/teleport/ is missing or empty"
-    echo "  Proceeding without webassets_embed tag (old version or build-webassets.sh failed)"
+# Three eras: v10+ (root webassets_embed.go), v8-v9 (lib/web/static_embed.go), v2-v7 (zip-append)
+if [[ "${BUILD_VARIANT}" == "upstream" ]]; then
+  if [[ -f "webassets_embed.go" || -f "lib/web/static_embed.go" ]]; then
+    # go:embed era (v8+): enable tag if assets exist
+    if [[ -d "webassets/teleport" ]] && [[ -n "$(ls -A webassets/teleport/ 2>/dev/null)" ]]; then
+      WEBASSETS_TAG="webassets_embed"
+      echo "=== upstream variant: webassets_embed tag enabled"
+    else
+      echo "ERROR: upstream variant requires webassets but webassets/teleport/ is missing or empty"
+      exit 1
+    fi
+  elif [[ -d "webassets/teleport" ]] && [[ -n "$(ls -A webassets/teleport/ 2>/dev/null)" ]]; then
+    # Pre-go:embed era (v2-v7): zip-append after build
+    echo "=== upstream variant: legacy zip-append mode (webassets found, no embed file)"
+  elif [[ -f ".gitmodules" ]] && grep -q "webassets" ".gitmodules" 2>/dev/null; then
+    # This version has a webassets submodule but assets are missing
+    echo "ERROR: upstream variant requires webassets but submodule assets are missing"
+    exit 1
   fi
 fi
 
@@ -311,6 +322,31 @@ fi
 echo "${REF_VER}" > "${REF_PWD}/dist/teleport/VERSION"
 if [[ -d "${SOURCE_DIR}/examples" ]]; then
   cp -r "${SOURCE_DIR}/examples" "${REF_PWD}/dist/teleport/" 2>/dev/null || true
+fi
+
+# Legacy zip-append for v2-v7 upstream variant
+# Pre-go:embed versions bundled web assets by appending a zip to the teleport binary
+if [[ "${BUILD_VARIANT:-}" == "upstream" && -z "${WEBASSETS_TAG}" ]]; then
+  if [[ -d "${SOURCE_DIR}/webassets/teleport" ]] && [[ -n "$(ls -A "${SOURCE_DIR}/webassets/teleport/" 2>/dev/null)" ]]; then
+    if [[ -f "${REF_PWD}/dist/teleport/teleport" ]]; then
+      echo "::group::Zip-append webassets (legacy v2-v7)"
+      WEBASSETS_ZIP=$(mktemp /tmp/webassets-XXXXXX.zip)
+      (cd "${SOURCE_DIR}/webassets/teleport" && zip -qr "${WEBASSETS_ZIP}" .) 2>&1
+      if [[ -s "${WEBASSETS_ZIP}" ]]; then
+        BEFORE_SIZE=$(stat -c%s "${REF_PWD}/dist/teleport/teleport" 2>/dev/null || stat -f%z "${REF_PWD}/dist/teleport/teleport")
+        cat "${WEBASSETS_ZIP}" >> "${REF_PWD}/dist/teleport/teleport"
+        zip -A "${REF_PWD}/dist/teleport/teleport" 2>&1 || true
+        AFTER_SIZE=$(stat -c%s "${REF_PWD}/dist/teleport/teleport" 2>/dev/null || stat -f%z "${REF_PWD}/dist/teleport/teleport")
+        echo "Appended webassets zip: ${BEFORE_SIZE} → ${AFTER_SIZE} bytes"
+      else
+        echo "ERROR: Failed to create webassets zip for upstream variant"
+        rm -f "${WEBASSETS_ZIP}"
+        exit 1
+      fi
+      rm -f "${WEBASSETS_ZIP}"
+      echo "::endgroup::"
+    fi
+  fi
 fi
 
 # UPX compression for lite variant

@@ -1,0 +1,98 @@
+name: "Purge All Docker Images"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DELETE to confirm purging all Docker images'
+        required: true
+        default: ''
+
+permissions:
+  packages: write    # needed for GHCR package deletion
+
+jobs:
+  purge-ghcr:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'DELETE'
+    strategy:
+      matrix:
+        package: [teleport]
+    steps:
+      - name: Delete all GHCR package versions
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          OWNER: ${{ github.repository_owner }}
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          echo "Purging GHCR package: ghcr.io/${OWNER}/${PACKAGE}"
+          PAGE=1
+          DELETED=0
+          while true; do
+            VERSIONS=$(gh api \
+              "/users/${OWNER}/packages/container/${PACKAGE}/versions?per_page=100&page=${PAGE}" \
+              --jq '.[].id' 2>/dev/null || true)
+            if [[ -z "${VERSIONS}" ]]; then
+              break
+            fi
+            for vid in ${VERSIONS}; do
+              echo "  Deleting version ${vid}..."
+              gh api --method DELETE \
+                "/users/${OWNER}/packages/container/${PACKAGE}/versions/${vid}" \
+                2>/dev/null || echo "  Failed to delete version ${vid}"
+              DELETED=$((DELETED + 1))
+              sleep 0.2
+            done
+            PAGE=$((PAGE + 1))
+          done
+          echo "Deleted ${DELETED} GHCR versions for ${PACKAGE}"
+
+  purge-dockerhub:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'DELETE'
+    strategy:
+      matrix:
+        repo: [draconrose/teleport]
+    steps:
+      - name: Delete all Docker Hub tags
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          REPO: ${{ matrix.repo }}
+        run: |
+          echo "Purging Docker Hub repo: ${REPO}"
+
+          # Authenticate
+          TOKEN=$(curl -s -H "Content-Type: application/json" \
+            -X POST -d "{\"username\":\"${DOCKER_USERNAME}\",\"password\":\"${DOCKER_PASSWORD}\"}" \
+            "https://hub.docker.com/v2/users/login/" | jq -r '.token')
+
+          if [[ -z "${TOKEN}" || "${TOKEN}" == "null" ]]; then
+            echo "ERROR: Failed to authenticate with Docker Hub"
+            exit 1
+          fi
+
+          # Paginate through all tags and delete them
+          DELETED=0
+          NEXT_URL="https://hub.docker.com/v2/repositories/${REPO}/tags/?page_size=100"
+
+          while [[ -n "${NEXT_URL}" && "${NEXT_URL}" != "null" ]]; do
+            RESPONSE=$(curl -s -H "Authorization: JWT ${TOKEN}" "${NEXT_URL}")
+            TAGS=$(echo "${RESPONSE}" | jq -r '.results[].name' 2>/dev/null || true)
+            NEXT_URL=$(echo "${RESPONSE}" | jq -r '.next' 2>/dev/null || true)
+
+            if [[ -z "${TAGS}" ]]; then
+              break
+            fi
+
+            for tag in ${TAGS}; do
+              echo "  Deleting ${REPO}:${tag}..."
+              curl -s -X DELETE \
+                -H "Authorization: JWT ${TOKEN}" \
+                "https://hub.docker.com/v2/repositories/${REPO}/tags/${tag}/" \
+                >/dev/null 2>&1 || echo "  Failed to delete ${tag}"
+              DELETED=$((DELETED + 1))
+              sleep 0.2
+            done
+          done
+          echo "Deleted ${DELETED} Docker Hub tags for ${REPO}"

@@ -1,6 +1,6 @@
 #!/bin/bash
 # smoke-test.sh — Validate built binaries have correct architecture and can launch
-# Environment variables: GO_OS, GO_ARCH, REF_PWD, BUILD_VARIANT (optional)
+# Environment variables: GO_OS, GO_ARCH, REF_PWD, BUILD_VARIANT, TP_VERSION (optional)
 set -eo pipefail
 
 DIST_DIR="${REF_PWD}/dist/teleport"
@@ -76,20 +76,44 @@ BUILD_VARIANT="${BUILD_VARIANT:-}"
 if [[ -n "${BUILD_VARIANT}" && -f "${DIST_DIR}/teleport" ]]; then
   TELEPORT_SIZE=$(stat -c%s "${DIST_DIR}/teleport" 2>/dev/null || stat -f%z "${DIST_DIR}/teleport" 2>/dev/null || echo "0")
   TELEPORT_SIZE_MB=$((TELEPORT_SIZE / 1048576))
-  echo "=== Smoke test: variant size check (variant=${BUILD_VARIANT}, teleport=${TELEPORT_SIZE_MB}MB)"
+
+  # Determine version-aware minimum size for upstream variant
+  # Based on upstream release sizes: v4=46MB tar, v8=65MB, v10=108MB, v14=141MB, v18=197MB
+  # Individual uncompressed teleport binary is roughly 60-70% of tarball total
+  MAJOR=0
+  if [[ -n "${TP_VERSION:-}" ]]; then
+    MAJOR=$(echo "${TP_VERSION#v}" | cut -d. -f1)
+  fi
+
+  echo "=== Smoke test: variant size check (variant=${BUILD_VARIANT}, teleport=${TELEPORT_SIZE_MB}MB, major=v${MAJOR})"
+
   case "${BUILD_VARIANT}" in
-    full|upstream)
-      # Should have webassets embedded — sanity check minimum size
-      if [[ "${TELEPORT_SIZE_MB}" -lt 250 ]]; then
-        echo "  FAIL: ${BUILD_VARIANT} variant teleport binary is only ${TELEPORT_SIZE_MB}MB (expected >250MB with webassets)"
+    upstream)
+      # Version-aware minimum: upstream should include web assets
+      if [[ "${MAJOR}" -ge 15 ]]; then
+        MIN_SIZE_MB=100   # v15+: large UI with WASM
+      elif [[ "${MAJOR}" -ge 10 ]]; then
+        MIN_SIZE_MB=60    # v10-v14: go:embed webassets
+      elif [[ "${MAJOR}" -ge 8 ]]; then
+        MIN_SIZE_MB=40    # v8-v9: go:embed webassets (smaller UI)
+      elif [[ "${MAJOR}" -ge 5 ]]; then
+        MIN_SIZE_MB=20    # v5-v7: zip-append adds some bulk
+      elif [[ "${MAJOR}" -ge 2 ]]; then
+        MIN_SIZE_MB=10    # v2-v4: small binaries
+      else
+        MIN_SIZE_MB=5     # unknown version, very lenient
+      fi
+
+      if [[ "${TELEPORT_SIZE_MB}" -lt "${MIN_SIZE_MB}" ]]; then
+        echo "  FAIL: upstream variant teleport binary is only ${TELEPORT_SIZE_MB}MB (expected >${MIN_SIZE_MB}MB for v${MAJOR})"
         FAIL=1
       else
-        echo "  OK: ${BUILD_VARIANT} variant size ${TELEPORT_SIZE_MB}MB"
+        echo "  OK: upstream variant size ${TELEPORT_SIZE_MB}MB (min ${MIN_SIZE_MB}MB for v${MAJOR})"
       fi
       ;;
     *)
-      # pam/lite: no webassets tag, just report size (no upper bound — modern teleport is large)
-      echo "  OK: ${BUILD_VARIANT:-lite} variant size ${TELEPORT_SIZE_MB}MB"
+      # pam/lite: no webassets, just report size
+      echo "  OK: ${BUILD_VARIANT} variant size ${TELEPORT_SIZE_MB}MB"
       ;;
   esac
 fi

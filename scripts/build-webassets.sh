@@ -1,26 +1,118 @@
 #!/bin/bash
-# build-webassets.sh — Build teleport web UI assets for full/upstream variants
-# Must run before build.sh so that webassets/teleport/ exists for go:embed
+# build-webassets.sh — Prepare teleport web UI assets for upstream variant
+# Handles three eras of web asset bundling:
+#   v10+:  Build from source (yarn/pnpm monorepo) → go:embed via root webassets_embed.go
+#   v8-v9: Fetch from git submodule (pre-built) → go:embed via lib/web/static_embed.go
+#   v2-v7: Fetch from git submodule (pre-built) → zip-append in build.sh
 # Environment variables: REF_PWD, UPSTREAM
 set -eo pipefail
 
 SOURCE_DIR="${REF_PWD}/go/src/${UPSTREAM}"
 
-# Check if this version supports webassets embedding
-# v11+ has webassets_embed.go at root with //go:embed webassets/teleport
-if [[ ! -f "${SOURCE_DIR}/webassets_embed.go" ]]; then
-  echo "WARNING: webassets_embed.go not found — this version doesn't support embedded web assets"
+# ===================================================================
+# Detect which webassets era we're in
+# ===================================================================
+WEBASSETS_ERA=""
+
+if [[ -f "${SOURCE_DIR}/webassets_embed.go" ]]; then
+  # v10+: root-level go:embed, build from source
+  WEBASSETS_ERA="modern"
+  echo "=== Detected modern webassets (root webassets_embed.go)"
+elif [[ -f "${SOURCE_DIR}/lib/web/static_embed.go" ]]; then
+  # v8-v9: lib/web go:embed, pre-built from submodule
+  WEBASSETS_ERA="embed-submodule"
+  echo "=== Detected v8-v9 webassets (lib/web/static_embed.go, submodule)"
+elif [[ -f "${SOURCE_DIR}/.gitmodules" ]] && grep -q "webassets" "${SOURCE_DIR}/.gitmodules" 2>/dev/null; then
+  # v2-v7: zip-append method, pre-built from submodule
+  WEBASSETS_ERA="zip-submodule"
+  echo "=== Detected legacy webassets (zip-append, submodule)"
+else
+  echo "WARNING: No webassets support detected — this version has no web console"
   exit 0
 fi
 
-# Detect package manager: pnpm (v15+) or yarn (v11-v14)
-# The package.json is at the repo root (monorepo), not in web/
+# ===================================================================
+# Submodule-based eras (v2-v9): init submodule to get pre-built assets
+# ===================================================================
+if [[ "${WEBASSETS_ERA}" == "embed-submodule" || "${WEBASSETS_ERA}" == "zip-submodule" ]]; then
+  echo "::group::Init webassets submodule"
+
+  # Install git + zip if not available (docker containers)
+  if ! command -v git &>/dev/null || ! command -v zip &>/dev/null; then
+    apt-get update -qq 2>/dev/null || true
+    apt-get install -y -qq git ca-certificates zip 2>/dev/null || true
+  fi
+
+  cd "${SOURCE_DIR}"
+  git config --global --add safe.directory "${SOURCE_DIR}"
+
+  # Init ONLY the webassets submodule (not 'e' which is gravitational's private enterprise repo)
+  git submodule init -- webassets 2>&1 || true
+
+  # Convert SSH URLs to HTTPS for CI (submodule may use git@github.com: syntax)
+  SUBMOD_URL=$(git config --file .gitmodules submodule.webassets.url 2>/dev/null || echo "")
+  if [[ "${SUBMOD_URL}" == git@github.com:* ]]; then
+    HTTPS_URL="https://github.com/${SUBMOD_URL#git@github.com:}"
+    git config submodule.webassets.url "${HTTPS_URL}"
+  fi
+
+  git submodule update --depth 1 -- webassets 2>&1 || {
+    echo "Submodule update failed, trying manual clone"
+    SUBMOD_PATH=$(git config --file .gitmodules submodule.webassets.path 2>/dev/null || echo "webassets")
+    SUBMOD_REF=$(git ls-tree HEAD "${SUBMOD_PATH}" 2>/dev/null | awk '{print $3}' || echo "")
+    # Build HTTPS clone URL
+    CLONE_URL="${SUBMOD_URL}"
+    if [[ "${CLONE_URL}" == git@github.com:* ]]; then
+      CLONE_URL="https://github.com/${CLONE_URL#git@github.com:}"
+    fi
+    rm -rf "${SUBMOD_PATH}"
+    if [[ -n "${CLONE_URL}" ]]; then
+      git clone --depth 1 "${CLONE_URL}" "${SUBMOD_PATH}" 2>&1 || true
+      if [[ -n "${SUBMOD_REF}" && -d "${SUBMOD_PATH}" ]]; then
+        cd "${SUBMOD_PATH}"
+        git fetch origin "${SUBMOD_REF}" --depth 1 2>/dev/null || true
+        git checkout "${SUBMOD_REF}" 2>/dev/null || true
+        cd "${SOURCE_DIR}"
+      fi
+    fi
+  }
+  echo "::endgroup::"
+
+  # For v8-v9 embed-submodule: copy assets to where go:embed expects them
+  if [[ "${WEBASSETS_ERA}" == "embed-submodule" ]]; then
+    echo "::group::Copy assets for lib/web go:embed"
+    # The embed directive in lib/web/static_embed.go typically references build/webassets
+    if [[ -d "webassets/teleport" ]]; then
+      mkdir -p lib/web/build/webassets
+      cp -r webassets/teleport/* lib/web/build/webassets/ 2>/dev/null || true
+      echo "Copied webassets/teleport/ → lib/web/build/webassets/"
+    fi
+    echo "::endgroup::"
+  fi
+
+  # Report
+  if [[ -d "webassets/teleport" ]] && [[ -n "$(ls -A webassets/teleport/ 2>/dev/null)" ]]; then
+    ASSETS_SIZE=$(du -sh webassets/teleport/ | cut -f1)
+    ASSETS_COUNT=$(find webassets/teleport/ -type f | wc -l)
+    echo "=== Web assets from submodule (${ASSETS_SIZE}, ${ASSETS_COUNT} files)"
+  else
+    echo "ERROR: webassets/teleport/ missing after submodule init"
+    echo "  The upstream variant requires web assets to be a 1:1 drop-in replacement."
+    ls -la webassets/ 2>/dev/null || echo "  (webassets/ does not exist)"
+    exit 1
+  fi
+  exit 0
+fi
+
+# ===================================================================
+# Modern era (v10+): build from source
+# ===================================================================
 if [[ ! -f "${SOURCE_DIR}/package.json" ]]; then
   echo "WARNING: package.json not found at repo root — skipping webassets build"
   exit 0
 fi
 
-echo "=== Building web assets"
+echo "=== Building web assets from source"
 
 # --- Install system dependencies ---
 echo "::group::Install system dependencies"
@@ -112,7 +204,7 @@ if [[ -f "pnpm-lock.yaml" ]]; then
   echo "::endgroup::"
 
 elif [[ -f "yarn.lock" ]]; then
-  # v11-v14: yarn (predates wasm requirement)
+  # v10-v14: yarn monorepo
   echo "::group::Install yarn"
   npm install -g yarn 2>/dev/null || true
   echo "yarn: $(yarn --version)"
@@ -145,7 +237,7 @@ if [[ -d "webassets/teleport" ]] && [[ -n "$(ls -A webassets/teleport/ 2>/dev/nu
   echo "=== Web assets built successfully (${ASSETS_SIZE}, ${ASSETS_COUNT} files)"
 else
   echo "ERROR: webassets/teleport/ is missing or empty after build"
-  echo "The full/upstream variant will NOT include web UI."
+  echo "The upstream variant will NOT include web UI."
   ls -la webassets/ 2>/dev/null || echo "  (webassets/ does not exist)"
   exit 1
 fi
