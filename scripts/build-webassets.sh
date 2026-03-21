@@ -26,7 +26,7 @@ echo "=== Building web assets"
 echo "::group::Install system dependencies"
 if command -v apt-get &>/dev/null; then
   apt-get update -qq 2>/dev/null || true
-  apt-get install -y -qq curl ca-certificates xz-utils make git gcc pkg-config libssl-dev 2>/dev/null || true
+  apt-get install -y -qq curl ca-certificates xz-utils make git gcc g++ pkg-config libssl-dev 2>/dev/null || true
 fi
 echo "::endgroup::"
 
@@ -90,16 +90,21 @@ if [[ -f "pnpm-lock.yaml" ]]; then
   echo "::endgroup::"
 
   # Install Rust toolchain for wasm build (build-ironrdp-wasm)
+  # Pin CARGO_HOME/RUSTUP_HOME so paths are consistent regardless of $HOME
+  # (in CI docker actions, $HOME=/github/home but euid home is /root)
+  export CARGO_HOME="${CARGO_HOME:-/usr/local/cargo}"
+  export RUSTUP_HOME="${RUSTUP_HOME:-/usr/local/rustup}"
   echo "::group::Install Rust toolchain"
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-  . "$HOME/.cargo/env"
+  export PATH="${CARGO_HOME}/bin:${PATH}"
   rustup target add wasm32-unknown-unknown
   echo "Rust: $(rustc --version)"
   echo "::endgroup::"
 
   # Use upstream Makefile which handles wasm-bindgen, wasm-opt, pnpm deps, and build
+  # CI=true is required so Makefile auto-installs wasm-bindgen-cli instead of just warning
   echo "::group::Build web UI (make ensure-webassets)"
-  make ensure-webassets 2>&1 || {
+  CI=true make ensure-webassets 2>&1 || {
     echo "WARNING: make ensure-webassets failed, falling back to pnpm build-ui-oss"
     pnpm install --frozen-lockfile 2>/dev/null || pnpm install 2>/dev/null || true
     pnpm build-ui-oss 2>/dev/null || true
