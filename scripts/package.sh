@@ -15,14 +15,27 @@ DIST_DIR="${BASE_DIR}/dist"
 ARTIFACTS_DIR="${BASE_DIR}/artifacts"
 mkdir -p "${ARTIFACTS_DIR}"
 
-# ARCH_NAME is already the full platform identifier (e.g. linux-amd64, darwin-arm64)
-# BUILD_VARIANT controls artifact naming suffix
+# ARCH_NAME comes from matrix name (e.g. linux-amd64-full) — strip variant suffix to get clean arch
 BUILD_VARIANT="${BUILD_VARIANT:-}"
+CLEAN_ARCH="${ARCH_NAME%-full}"
+CLEAN_ARCH="${CLEAN_ARCH%-upstream}"
+CLEAN_ARCH="${CLEAN_ARCH%-pam}"
+CLEAN_ARCH="${CLEAN_ARCH%-lite}"
+
+# Tarball naming: upstream matches gravitational CDN convention
 case "${BUILD_VARIANT}" in
-  full)     PLATFORM_NAME="${ARCH_NAME}-full" ;;
-  upstream) PLATFORM_NAME="${ARCH_NAME}-bin" ;;
-  pam)      PLATFORM_NAME="${ARCH_NAME}-pam" ;;
-  *)        PLATFORM_NAME="${ARCH_NAME}" ;;
+  upstream) PLATFORM_NAME="${CLEAN_ARCH}-bin" ;;
+  full)     PLATFORM_NAME="${CLEAN_ARCH}-full" ;;
+  pam)      PLATFORM_NAME="${CLEAN_ARCH}-pam" ;;
+  lite|"")  PLATFORM_NAME="${CLEAN_ARCH}-lite" ;;
+esac
+
+# DEB/RPM: variant goes in package name, not arch
+case "${BUILD_VARIANT}" in
+  upstream) PKG_NAME="teleport" ;;
+  full)     PKG_NAME="teleport-full" ;;
+  pam)      PKG_NAME="teleport-pam" ;;
+  lite|"")  PKG_NAME="teleport-lite" ;;
 esac
 
 echo "=== Packaging ${VERSION} for ${PLATFORM_NAME}"
@@ -119,8 +132,8 @@ fi
 NFPM_CONFIG="${BASE_DIR}/nfpm-generated.yaml"
 # nfpm expects version without 'v' prefix for proper deb/rpm versioning
 NFPM_VERSION="${VERSION#v}"
-# nfpm expects Debian arch names (amd64, arm64, armhf), not platform names (linux-amd64)
-NFPM_ARCH="${ARCH_NAME#linux-}"
+# nfpm expects Debian arch names (amd64, arm64, armhf) — use CLEAN_ARCH to avoid variant pollution
+NFPM_ARCH="${CLEAN_ARCH#linux-}"
 NFPM_ARCH="${NFPM_ARCH#darwin-}"
 NFPM_ARCH="${NFPM_ARCH#windows-}"
 # Map Go arch names to Debian arch names
@@ -129,7 +142,7 @@ case "${NFPM_ARCH}" in
   armhf)    NFPM_ARCH="armhf" ;;
   armel)    NFPM_ARCH="armel" ;;
 esac
-sed -e "s#%VERSION%#${NFPM_VERSION}#g" -e "s#%ARCH%#${NFPM_ARCH}#g" "${NFPM_TEMPLATE}" > "${NFPM_CONFIG}"
+sed -e "s#%VERSION%#${NFPM_VERSION}#g" -e "s#%ARCH%#${NFPM_ARCH}#g" -e "s#%NAME%#${PKG_NAME}#g" "${NFPM_TEMPLATE}" > "${NFPM_CONFIG}"
 
 # Build DEB and RPM
 echo "::group::build DEB"

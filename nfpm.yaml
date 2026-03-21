@@ -2,10 +2,11 @@
 #
 # check https://nfpm.goreleaser.com/configuration for detailed usage
 #
-name: "teleport"
+name: "%NAME%"
 arch: "%ARCH%"
 platform: "linux"
 version: "%VERSION%"
+release: "1"
 section: "default"
 priority: "extra"
 provides:

@@ -313,5 +313,16 @@ if [[ -d "${SOURCE_DIR}/examples" ]]; then
   cp -r "${SOURCE_DIR}/examples" "${REF_PWD}/dist/teleport/" 2>/dev/null || true
 fi
 
+# UPX compression for lite variant
+if [[ "${BUILD_VARIANT:-}" == "lite" ]]; then
+  if command -v upx &>/dev/null; then
+    echo "::group::UPX compression (lite variant)"
+    for bin in "${REF_PWD}/dist/teleport/"*; do
+      [[ -f "$bin" && -x "$bin" ]] && upx --best --lzma "$bin" 2>&1 || true
+    done
+    echo "::endgroup::"
+  fi
+fi
+
 echo "=== Build complete"
 ls -la "${REF_PWD}/dist/teleport/"

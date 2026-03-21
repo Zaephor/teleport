@@ -76,6 +76,13 @@ case "${GO_ARCH:-amd64}" in
 esac
 echo "::endgroup::"
 
+# Install UPX for lite variant compression
+if [[ "${BUILD_VARIANT:-}" == "lite" ]]; then
+  echo "::group::install UPX (lite variant)"
+  apt-get install -y -qq upx-ucl 2>/dev/null || apt-get install -y -qq upx 2>/dev/null || true
+  echo "::endgroup::"
+fi
+
 echo "::group::postinstall"
 which ld || true
 echo "::endgroup::"
