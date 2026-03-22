@@ -13,7 +13,6 @@ if [[ ! -d "${SOURCE_DIR}" ]]; then
 fi
 
 cd "${SOURCE_DIR}"
-git config --global --add safe.directory "${SOURCE_DIR}"
 
 # Check if this version has rdp-client (v8+)
 if ! grep -q 'rdp-client' Cargo.toml 2>/dev/null && ! grep -q 'rdp-client' Cargo.lock 2>/dev/null; then
