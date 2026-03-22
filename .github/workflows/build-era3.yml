@@ -90,8 +90,64 @@ jobs:
           path: go/src/${{ env.UPSTREAM }}/webassets/
           retention-days: 1
 
+  build-rdpclient:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - go_arch: amd64
+          - go_arch: arm64
+    steps:
+      - name: Cache rdp-client
+        id: rdpclient-cache
+        uses: actions/cache@v4
+        with:
+          path: rdpclient
+          key: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
+
+      - name: Checkout CI repo
+        if: steps.rdpclient-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          path: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout teleport source
+        if: steps.rdpclient-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tp_version }}
+          path: go/src/${{ env.UPSTREAM }}
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Build rdp-client
+        if: steps.rdpclient-cache.outputs.cache-hit != 'true'
+        uses: docker://ubuntu:22.04
+        env:
+          REF_PWD: ${{ github.workspace }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+          GO_ARCH: ${{ matrix.go_arch }}
+        with:
+          entrypoint: /bin/bash
+          args: >-
+            -c "bash ci/scripts/build-rdpclient.sh"
+
+      - name: Upload rdp-client
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
+          path: rdpclient/
+          retention-days: 1
+          if-no-files-found: ignore
+
   build-core:
-    needs: [build-webassets]
+    needs: [build-webassets, build-rdpclient]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     strategy:
@@ -186,12 +242,13 @@ jobs:
           key: gobuild-${{ inputs.tp_version }}-${{ matrix.name }}
           restore-keys: gobuild-${{ inputs.tp_version }}-
 
-      - name: Cache rdp-client
+      - name: Download rdp-client
         if: matrix.build_variant == 'upstream' && (matrix.go_arch == 'amd64' || matrix.go_arch == 'arm64')
-        uses: actions/cache@v4
+        continue-on-error: true
+        uses: actions/download-artifact@v4
         with:
-          path: rdpclient-cache
-          key: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
+          name: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
+          path: rdpclient
 
       - name: Setup Go (macOS)
         if: runner.os == 'macOS'

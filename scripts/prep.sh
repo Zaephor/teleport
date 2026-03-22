@@ -76,24 +76,6 @@ case "${GO_ARCH:-amd64}" in
 esac
 echo "::endgroup::"
 
-# Install Rust toolchain for upstream variant (rdp-client build)
-if [[ "${BUILD_VARIANT:-}" == "upstream" ]]; then
-  case "${GO_ARCH:-amd64}" in
-    amd64|arm64)
-      echo "::group::install Rust toolchain (upstream variant)"
-      export CARGO_HOME="${CARGO_HOME:-/usr/local/cargo}"
-      export RUSTUP_HOME="${RUSTUP_HOME:-/usr/local/rustup}"
-      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-      export PATH="${CARGO_HOME}/bin:${PATH}"
-      # Add cross-compile target for arm64
-      if [[ "${GO_ARCH}" == "arm64" ]]; then
-        rustup target add aarch64-unknown-linux-gnu
-      fi
-      echo "::endgroup::"
-      ;;
-  esac
-fi
-
 echo "::group::postinstall"
 which ld || true
 echo "::endgroup::"

@@ -205,51 +205,32 @@ if [[ "${BUILD_VARIANT}" == "upstream" ]]; then
   fi
 fi
 
-# --- Build rdp-client (Rust) for upstream variant on amd64/arm64 ---
+# --- RDP client (pre-built by build-rdpclient job) ---
 RDPCLIENT_TAG=""
 if [[ "${BUILD_VARIANT}" == "upstream" && ("${GO_ARCH}" == "amd64" || "${GO_ARCH}" == "arm64") ]]; then
-  # Determine Rust target
+  # Determine Rust target to place the library where CGO expects it
   case "${GO_ARCH}" in
     amd64) RUST_TARGET="x86_64-unknown-linux-gnu" ;;
     arm64) RUST_TARGET="aarch64-unknown-linux-gnu" ;;
   esac
 
-  RDPCLIENT_CACHE="${REF_PWD}/rdpclient-cache"
   RDPCLIENT_LIB="target/${RUST_TARGET}/release/librdp_client.a"
 
-  # Check for cached rdp-client library
-  if [[ -f "${RDPCLIENT_CACHE}/librdp_client.a" ]]; then
-    echo "=== Using cached rdp-client library"
+  # Check for pre-built library (downloaded from build-rdpclient artifact)
+  if [[ -f "${REF_PWD}/rdpclient/librdp_client.a" ]]; then
     mkdir -p "target/${RUST_TARGET}/release"
-    cp "${RDPCLIENT_CACHE}/librdp_client.a" "${RDPCLIENT_LIB}"
-  elif command -v cargo &>/dev/null; then
-    # Configure cross-linker for Cargo if cross-compiling
-    if [[ "${GO_ARCH}" == "arm64" && -n "${CC:-}" ]]; then
-      mkdir -p "${HOME}/.cargo"
-      cat > "${HOME}/.cargo/config.toml" <<TOML
-[target.aarch64-unknown-linux-gnu]
-linker = "${CC}"
-TOML
-    fi
-
-    # Build the Rust rdp-client static library
-    echo "::group::Build rdp-client (Rust)"
-    cargo build -p rdp-client --release --locked --target "${RUST_TARGET}" 2>&1 || {
-      echo "WARNING: rdp-client build failed, proceeding without RDP support"
-    }
-    echo "::endgroup::"
-
-    # Save to cache for next run
-    if [[ -f "${RDPCLIENT_LIB}" ]]; then
-      mkdir -p "${RDPCLIENT_CACHE}"
-      cp "${RDPCLIENT_LIB}" "${RDPCLIENT_CACHE}/librdp_client.a"
-    fi
-  fi
-
-  # Enable tag if library is available
-  if [[ -f "${RDPCLIENT_LIB}" ]]; then
+    cp "${REF_PWD}/rdpclient/librdp_client.a" "${RDPCLIENT_LIB}"
     RDPCLIENT_TAG="desktop_access_rdp"
-    echo "=== RDP client ready: ${RUST_TARGET}"
+    echo "=== RDP client ready: ${RUST_TARGET} (pre-built)"
+  else
+    # desktop_access_rdp exists in v8+; required from v10+
+    MAJOR=$(echo "${REF_VER#v}" | cut -d. -f1)
+    if [[ "${MAJOR}" -ge 10 ]]; then
+      echo "ERROR: upstream variant requires rdp-client for v${MAJOR} but librdp_client.a not found"
+      exit 1
+    elif [[ "${MAJOR}" -ge 8 ]]; then
+      echo "WARNING: rdp-client not found for v${MAJOR}, upstream build will lack RDP support"
+    fi
   fi
 fi
 
