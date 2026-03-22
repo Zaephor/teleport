@@ -58,14 +58,6 @@ jobs:
           fetch-depth: 1
           token: ${{ secrets.GH_PAT }}
 
-      - name: Cache pnpm store
-        if: steps.webassets-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
-        with:
-          path: .pnpm-store
-          key: pnpm-${{ inputs.tp_version }}
-          restore-keys: pnpm-
-
       - name: Build web assets
         if: steps.webassets-cache.outputs.cache-hit != 'true'
         uses: docker://ubuntu:22.04
@@ -80,8 +72,10 @@ jobs:
       - name: Save webassets to cache path
         if: steps.webassets-cache.outputs.cache-hit != 'true'
         run: |
+          sudo chown -R $(id -u):$(id -g) go/src/${{ env.UPSTREAM }}/webassets/ || true
           mkdir -p cached-webassets
           cp -r go/src/${{ env.UPSTREAM }}/webassets/* cached-webassets/
+          echo "Cached webassets: $(du -sh cached-webassets/ | cut -f1)"
 
       - name: Upload web assets
         uses: actions/upload-artifact@v4
