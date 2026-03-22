@@ -5,6 +5,7 @@
 #   GO_VERSION, GO_OS, GO_ARCH, GO_ARM, GO_EXPERIMENT
 #   CC, REF_PWD, REF_VER, UPSTREAM, PAM (true/false)
 #   BUILD_METHOD (go-build|make-release, default: go-build)
+#   BUILD_VARIANT (upstream/lite)
 set -eo pipefail
 
 IFS=$'\n'
@@ -85,21 +86,16 @@ if [[ "${PAM:-true}" == "true" && "${GO_OS}" == "linux" ]]; then
   PAM_TAG="pam"
 fi
 
-# --- Build variant (full/upstream/pam/lite) ---
+# --- Build variant (upstream/lite) ---
 BUILD_VARIANT="${BUILD_VARIANT:-}"
 WEBASSETS_TAG=""
-VARIANT_PAM_OVERRIDE=""
 
 case "${BUILD_VARIANT}" in
   upstream)
     # webassets resolved after cd to SOURCE_DIR
     ;;
-  pam)
-    # PAM only, no webassets
-    ;;
   lite)
-    # No PAM, no webassets — lighter binaries for agents
-    VARIANT_PAM_OVERRIDE="disabled"
+    # PAM + no webassets, no RDP — lighter binaries for agents
     ;;
 esac
 
@@ -209,9 +205,38 @@ if [[ "${BUILD_VARIANT}" == "upstream" ]]; then
   fi
 fi
 
-# Override PAM for lite variant
-if [[ "${VARIANT_PAM_OVERRIDE}" == "disabled" ]]; then
-  PAM_TAG=""
+# --- Build rdp-client (Rust) for upstream variant on amd64/arm64 ---
+RDPCLIENT_TAG=""
+if [[ "${BUILD_VARIANT}" == "upstream" && ("${GO_ARCH}" == "amd64" || "${GO_ARCH}" == "arm64") ]]; then
+  if command -v cargo &>/dev/null; then
+    # Determine Rust target
+    case "${GO_ARCH}" in
+      amd64) RUST_TARGET="x86_64-unknown-linux-gnu" ;;
+      arm64) RUST_TARGET="aarch64-unknown-linux-gnu" ;;
+    esac
+
+    # Configure cross-linker for Cargo if cross-compiling
+    if [[ "${GO_ARCH}" == "arm64" && -n "${CC:-}" ]]; then
+      mkdir -p "${HOME}/.cargo"
+      cat > "${HOME}/.cargo/config.toml" <<TOML
+[target.aarch64-unknown-linux-gnu]
+linker = "${CC}"
+TOML
+    fi
+
+    # Build the Rust rdp-client static library
+    echo "::group::Build rdp-client (Rust)"
+    cargo build -p rdp-client --release --locked --target "${RUST_TARGET}" 2>&1 || {
+      echo "WARNING: rdp-client build failed, proceeding without RDP support"
+    }
+    echo "::endgroup::"
+
+    # Enable tag if library was built
+    if [[ -f "target/${RUST_TARGET}/release/librdp_client.a" ]]; then
+      RDPCLIENT_TAG="desktop_access_rdp"
+      echo "=== RDP client built: ${RUST_TARGET}"
+    fi
+  fi
 fi
 
 echo "::group::go env"
@@ -282,7 +307,7 @@ else
         BINARY_TAGS="${PAM_TAG} ${BASE_TAGS}"
         ;;
       teleport)
-        BINARY_TAGS="${PAM_TAG} ${WEBASSETS_TAG} ${BASE_TAGS}"
+        BINARY_TAGS="${PAM_TAG} ${WEBASSETS_TAG} ${RDPCLIENT_TAG} ${BASE_TAGS}"
         ;;
       tsh)
         # Upstream: tsh doesn't use pam tag
@@ -346,17 +371,6 @@ if [[ "${BUILD_VARIANT:-}" == "upstream" && -z "${WEBASSETS_TAG}" ]]; then
       rm -f "${WEBASSETS_ZIP}"
       echo "::endgroup::"
     fi
-  fi
-fi
-
-# UPX compression for lite variant
-if [[ "${BUILD_VARIANT:-}" == "lite" ]]; then
-  if command -v upx &>/dev/null; then
-    echo "::group::UPX compression (lite variant)"
-    for bin in "${REF_PWD}/dist/teleport/"*; do
-      [[ -f "$bin" && -x "$bin" ]] && upx --best --lzma "$bin" 2>&1 || true
-    done
-    echo "::endgroup::"
   fi
 fi
 

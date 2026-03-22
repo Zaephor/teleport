@@ -112,7 +112,7 @@ if [[ -n "${BUILD_VARIANT}" && -f "${DIST_DIR}/teleport" ]]; then
       fi
       ;;
     *)
-      # pam/lite: no webassets, just report size
+      # lite: no webassets, just report size
       echo "  OK: ${BUILD_VARIANT} variant size ${TELEPORT_SIZE_MB}MB"
       ;;
   esac

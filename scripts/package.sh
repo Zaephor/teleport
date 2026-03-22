@@ -18,13 +18,11 @@ mkdir -p "${ARTIFACTS_DIR}"
 # ARCH_NAME comes from matrix name (e.g. linux-amd64-full) — strip variant suffix to get clean arch
 BUILD_VARIANT="${BUILD_VARIANT:-}"
 CLEAN_ARCH="${ARCH_NAME%-upstream}"
-CLEAN_ARCH="${CLEAN_ARCH%-pam}"
 CLEAN_ARCH="${CLEAN_ARCH%-lite}"
 
 # Tarball naming: upstream matches gravitational CDN convention
 case "${BUILD_VARIANT}" in
   upstream) PLATFORM_NAME="${CLEAN_ARCH}-bin" ;;
-  pam)      PLATFORM_NAME="${CLEAN_ARCH}-pam" ;;
   lite)     PLATFORM_NAME="${CLEAN_ARCH}-lite" ;;
   *)        echo "ERROR: Unknown BUILD_VARIANT '${BUILD_VARIANT}'" >&2; exit 1 ;;
 esac
@@ -32,7 +30,6 @@ esac
 # DEB/RPM: variant goes in package name, not arch
 case "${BUILD_VARIANT}" in
   upstream) PKG_NAME="teleport" ;;
-  pam)      PKG_NAME="teleport-pam" ;;
   lite)     PKG_NAME="teleport-lite" ;;
 esac
 

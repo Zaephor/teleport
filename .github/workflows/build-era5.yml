@@ -138,26 +138,6 @@ jobs:
             cc: aarch64-linux-gnu-gcc
             runner: ubuntu-latest
             build_variant: "upstream"
-          - name: linux-amd64-pam
-            go_os: linux
-            go_arch: amd64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ubuntu:14.04
-            pam: "true"
-            cc: ""
-            runner: ubuntu-latest
-            build_variant: "pam"
-          - name: linux-arm64-pam
-            go_os: linux
-            go_arch: arm64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ubuntu:20.04
-            pam: "true"
-            cc: aarch64-linux-gnu-gcc
-            runner: ubuntu-latest
-            build_variant: "pam"
 
     steps:
       - name: Checkout CI repo
@@ -421,36 +401,6 @@ jobs:
             cc: ""
             runner: windows-latest
             build_variant: "lite"
-          - name: linux-i386-pam
-            go_os: linux
-            go_arch: "386"
-            go_arm: ""
-            go_experiment: ""
-            build_container: ubuntu:14.04
-            pam: "true"
-            cc: ""
-            runner: ubuntu-latest
-            build_variant: "pam"
-          - name: linux-armhf-pam
-            go_os: linux
-            go_arch: arm
-            go_arm: "6"
-            go_experiment: nounified
-            build_container: ubuntu:22.04
-            pam: "true"
-            cc: arm-linux-gnueabihf-gcc
-            runner: ubuntu-latest
-            build_variant: "pam"
-          - name: linux-armel-pam
-            go_os: linux
-            go_arch: arm
-            go_arm: "5"
-            go_experiment: ""
-            build_container: ubuntu:22.04
-            pam: "true"
-            cc: arm-linux-gnueabi-gcc
-            runner: ubuntu-latest
-            build_variant: "pam"
           - name: darwin-amd64-upstream
             go_os: darwin
             go_arch: amd64
