@@ -186,6 +186,13 @@ jobs:
           key: gobuild-${{ inputs.tp_version }}-${{ matrix.name }}
           restore-keys: gobuild-${{ inputs.tp_version }}-
 
+      - name: Cache rdp-client
+        if: matrix.build_variant == 'upstream' && (matrix.go_arch == 'amd64' || matrix.go_arch == 'arm64')
+        uses: actions/cache@v4
+        with:
+          path: rdpclient-cache
+          key: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
+
       - name: Setup Go (macOS)
         if: runner.os == 'macOS'
         uses: actions/setup-go@v5

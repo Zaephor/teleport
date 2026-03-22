@@ -208,13 +208,21 @@ fi
 # --- Build rdp-client (Rust) for upstream variant on amd64/arm64 ---
 RDPCLIENT_TAG=""
 if [[ "${BUILD_VARIANT}" == "upstream" && ("${GO_ARCH}" == "amd64" || "${GO_ARCH}" == "arm64") ]]; then
-  if command -v cargo &>/dev/null; then
-    # Determine Rust target
-    case "${GO_ARCH}" in
-      amd64) RUST_TARGET="x86_64-unknown-linux-gnu" ;;
-      arm64) RUST_TARGET="aarch64-unknown-linux-gnu" ;;
-    esac
+  # Determine Rust target
+  case "${GO_ARCH}" in
+    amd64) RUST_TARGET="x86_64-unknown-linux-gnu" ;;
+    arm64) RUST_TARGET="aarch64-unknown-linux-gnu" ;;
+  esac
 
+  RDPCLIENT_CACHE="${REF_PWD}/rdpclient-cache"
+  RDPCLIENT_LIB="target/${RUST_TARGET}/release/librdp_client.a"
+
+  # Check for cached rdp-client library
+  if [[ -f "${RDPCLIENT_CACHE}/librdp_client.a" ]]; then
+    echo "=== Using cached rdp-client library"
+    mkdir -p "target/${RUST_TARGET}/release"
+    cp "${RDPCLIENT_CACHE}/librdp_client.a" "${RDPCLIENT_LIB}"
+  elif command -v cargo &>/dev/null; then
     # Configure cross-linker for Cargo if cross-compiling
     if [[ "${GO_ARCH}" == "arm64" && -n "${CC:-}" ]]; then
       mkdir -p "${HOME}/.cargo"
@@ -231,11 +239,17 @@ TOML
     }
     echo "::endgroup::"
 
-    # Enable tag if library was built
-    if [[ -f "target/${RUST_TARGET}/release/librdp_client.a" ]]; then
-      RDPCLIENT_TAG="desktop_access_rdp"
-      echo "=== RDP client built: ${RUST_TARGET}"
+    # Save to cache for next run
+    if [[ -f "${RDPCLIENT_LIB}" ]]; then
+      mkdir -p "${RDPCLIENT_CACHE}"
+      cp "${RDPCLIENT_LIB}" "${RDPCLIENT_CACHE}/librdp_client.a"
     fi
+  fi
+
+  # Enable tag if library is available
+  if [[ -f "${RDPCLIENT_LIB}" ]]; then
+    RDPCLIENT_TAG="desktop_access_rdp"
+    echo "=== RDP client ready: ${RUST_TARGET}"
   fi
 fi
 
