@@ -205,9 +205,9 @@ if [[ "${BUILD_VARIANT}" == "upstream" ]]; then
   fi
 fi
 
-# --- RDP client (pre-built by build-rdpclient job) ---
+# --- RDP client (pre-built by build-rdpclient job, Linux only) ---
 RDPCLIENT_TAG=""
-if [[ "${BUILD_VARIANT}" == "upstream" && ("${GO_ARCH}" == "amd64" || "${GO_ARCH}" == "arm64") ]]; then
+if [[ "${BUILD_VARIANT}" == "upstream" && "${GO_OS}" == "linux" && ("${GO_ARCH}" == "amd64" || "${GO_ARCH}" == "arm64") ]]; then
   # Determine Rust target to place the library where CGO expects it
   case "${GO_ARCH}" in
     amd64) RUST_TARGET="x86_64-unknown-linux-gnu" ;;
@@ -215,18 +215,23 @@ if [[ "${BUILD_VARIANT}" == "upstream" && ("${GO_ARCH}" == "amd64" || "${GO_ARCH
   esac
 
   RDPCLIENT_LIB="target/${RUST_TARGET}/release/librdp_client.a"
+  # The Go source at lib/srv/desktop/rdp/rdpclient/client.go includes <librdpclient.h>
+  # CGO finds it in the same directory as the Go source file
+  RDPCLIENT_HEADER="lib/srv/desktop/rdp/rdpclient/librdpclient.h"
 
-  # Check for pre-built library (downloaded from build-rdpclient artifact)
-  if [[ -f "${REF_PWD}/rdpclient/librdp_client.a" ]]; then
+  # Check for pre-built library + header (downloaded from build-rdpclient artifact)
+  if [[ -f "${REF_PWD}/rdpclient/librdp_client.a" && -f "${REF_PWD}/rdpclient/librdpclient.h" ]]; then
     mkdir -p "target/${RUST_TARGET}/release"
     cp "${REF_PWD}/rdpclient/librdp_client.a" "${RDPCLIENT_LIB}"
+    cp "${REF_PWD}/rdpclient/librdpclient.h" "${RDPCLIENT_HEADER}"
     RDPCLIENT_TAG="desktop_access_rdp"
     echo "=== RDP client ready: ${RUST_TARGET} (pre-built)"
   else
     # desktop_access_rdp exists in v8+; required from v10+
     MAJOR=$(echo "${REF_VER#v}" | cut -d. -f1)
     if [[ "${MAJOR}" -ge 10 ]]; then
-      echo "ERROR: upstream variant requires rdp-client for v${MAJOR} but librdp_client.a not found"
+      echo "ERROR: upstream variant requires rdp-client for v${MAJOR} but rdpclient artifact not found"
+      echo "  Expected: ${REF_PWD}/rdpclient/librdp_client.a and librdpclient.h"
       exit 1
     elif [[ "${MAJOR}" -ge 8 ]]; then
       echo "WARNING: rdp-client not found for v${MAJOR}, upstream build will lack RDP support"

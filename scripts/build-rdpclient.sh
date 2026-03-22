@@ -71,13 +71,22 @@ echo "::endgroup::"
 
 # --- Output ---
 LIB_PATH="target/${RUST_TARGET}/release/librdp_client.a"
+# cbindgen generates the header at the crate root during cargo build (via build.rs)
+HEADER_PATH="lib/srv/desktop/rdp/rdpclient/librdpclient.h"
+
 if [[ -f "${LIB_PATH}" ]]; then
-  # Copy to a flat output directory for artifact upload
+  # Copy library and header to a flat output directory for artifact upload
   OUTPUT_DIR="${REF_PWD}/rdpclient"
   mkdir -p "${OUTPUT_DIR}"
   cp "${LIB_PATH}" "${OUTPUT_DIR}/librdp_client.a"
-  LIB_SIZE=$(stat -c%s "${OUTPUT_DIR}/librdp_client.a" 2>/dev/null || stat -f%z "${OUTPUT_DIR}/librdp_client.a" 2>/dev/null || echo "?")
-  echo "=== rdp-client built: ${RUST_TARGET} (${LIB_SIZE} bytes)"
+
+  if [[ -f "${HEADER_PATH}" ]]; then
+    cp "${HEADER_PATH}" "${OUTPUT_DIR}/librdpclient.h"
+    echo "=== rdp-client built: ${RUST_TARGET} (lib + header)"
+  else
+    echo "ERROR: librdpclient.h not found at ${HEADER_PATH} after build"
+    exit 1
+  fi
 else
   echo "ERROR: librdp_client.a not found after build"
   exit 1
