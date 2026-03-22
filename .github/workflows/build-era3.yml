@@ -131,6 +131,10 @@ jobs:
           args: >-
             -c "bash ci/scripts/build-rdpclient.sh"
 
+      - name: Fix rdp-client permissions
+        if: steps.rdpclient-cache.outputs.cache-hit != 'true'
+        run: sudo chown -R $(id -u):$(id -g) rdpclient/ 2>/dev/null || true
+
       - name: Upload rdp-client
         if: always()
         uses: actions/upload-artifact@v4
