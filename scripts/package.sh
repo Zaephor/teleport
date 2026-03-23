@@ -134,6 +134,10 @@ if [[ ! -f "${NFPM_TEMPLATE}" ]]; then
   exit 0
 fi
 
+# Copy service files to BASE_DIR where nfpm runs (nfpm.yaml references them with ./ paths)
+cp "${CI_DIR}/systemd-teleport.service" "${BASE_DIR}/systemd-teleport.service"
+cp "${CI_DIR}/upstart-teleport.conf" "${BASE_DIR}/upstart-teleport.conf"
+
 # Generate maintainer scripts: use upstream teleport-update if available, otherwise fallback
 SCRIPTS_DIR="${CI_DIR}/scripts"
 if [[ -e "${NFPM_TMP}/teleport-update" ]]; then
@@ -206,15 +210,16 @@ done
 
 # Build DEB and RPM
 echo "::group::build DEB"
-"${NFPM_BIN}" package -f "${NFPM_CONFIG}" -p deb -t "${ARTIFACTS_DIR}/" 2>&1 || echo "DEB packaging failed (non-fatal)"
+"${NFPM_BIN}" package -f "${NFPM_CONFIG}" -p deb -t "${ARTIFACTS_DIR}/" 2>&1
 echo "::endgroup::"
 
 echo "::group::build RPM"
-"${NFPM_BIN}" package -f "${NFPM_CONFIG}" -p rpm -t "${ARTIFACTS_DIR}/" 2>&1 || echo "RPM packaging failed (non-fatal)"
+"${NFPM_BIN}" package -f "${NFPM_CONFIG}" -p rpm -t "${ARTIFACTS_DIR}/" 2>&1
 echo "::endgroup::"
 
 # Cleanup
 rm -rf "${NFPM_TMP}" "${NFPM_CONFIG}"
+rm -f "${BASE_DIR}/systemd-teleport.service" "${BASE_DIR}/upstart-teleport.conf"
 
 echo "=== Packaging complete"
 ls -la "${ARTIFACTS_DIR}/"

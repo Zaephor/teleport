@@ -26,15 +26,14 @@ RUN set -eux; \
     URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE}/teleport-${RELEASE}-${ARTIFACT_ARCH}-bin.tar.gz"; \
     curl -fsSL "${URL}" -o /tmp/teleport.tar.gz; \
     tar -xzf /tmp/teleport.tar.gz -C /usr/local/bin --strip-components=1 \
-      teleport/teleport teleport/tctl; \
-    for bin in tsh tbot fdpass-teleport teleport-update; do \
+      teleport/teleport teleport/tctl teleport/tsh; \
+    for bin in tbot fdpass-teleport; do \
       tar -xzf /tmp/teleport.tar.gz -C /usr/local/bin --strip-components=1 \
         "teleport/${bin}" 2>/dev/null || true; \
     done; \
     rm -f /tmp/teleport.tar.gz; \
-    rm -f /usr/local/bin/teleport-update; \
-    chmod +x /usr/local/bin/teleport /usr/local/bin/tctl; \
-    chmod +x /usr/local/bin/tsh /usr/local/bin/tbot /usr/local/bin/fdpass-teleport \
+    chmod +x /usr/local/bin/teleport /usr/local/bin/tctl /usr/local/bin/tsh; \
+    chmod +x /usr/local/bin/tbot /usr/local/bin/fdpass-teleport \
       2>/dev/null || true; \
     apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
