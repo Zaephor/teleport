@@ -84,6 +84,7 @@ else
   if [[ -f "${BASE_DIR}/LICENSE" ]]; then
     cp "${BASE_DIR}/LICENSE" "${DIST_DIR}/teleport/LICENSE"
   fi
+  rm -rf "${DIST_DIR}/teleport/examples"
   cd "${DIST_DIR}"
   ARCHIVE="teleport-${VERSION}-${PLATFORM_NAME}.tar.gz"
   tar czf "${ARTIFACTS_DIR}/${ARCHIVE}" teleport/
@@ -108,10 +109,10 @@ elif [[ -x "${BASE_DIR}/bin/nfpm" ]]; then
 else
   echo "::group::install nfpm"
   mkdir -p "${BASE_DIR}/bin"
-  NFPM_VERSION="2.6.0"
+  NFPM_TOOL_VERSION="2.6.0"
   NFPM_TMP_DL=$(mktemp -d)
   trap "rm -rf ${NFPM_TMP_DL}" RETURN 2>/dev/null || true
-  curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" -o "${NFPM_TMP_DL}/nfpm.tar.gz"
+  curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_TOOL_VERSION}/nfpm_${NFPM_TOOL_VERSION}_Linux_x86_64.tar.gz" -o "${NFPM_TMP_DL}/nfpm.tar.gz"
   tar -xf "${NFPM_TMP_DL}/nfpm.tar.gz" -C "${BASE_DIR}/bin" nfpm
   rm -rf "${NFPM_TMP_DL}"
   chmod +x "${BASE_DIR}/bin/nfpm"

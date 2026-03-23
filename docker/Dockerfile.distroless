@@ -40,7 +40,7 @@ RUN set -eux; \
     mkdir -p /staging/etc/ssl/certs; \
     cp /etc/ssl/certs/ca-certificates.crt /staging/etc/ssl/certs/ca-certificates.crt
 
-FROM gcr.io/distroless/cc-debian12:nonroot
+FROM gcr.io/distroless/cc-debian12
 
 ARG RELEASE
 ARG GITHUB_REPO=Zaephor/teleport
@@ -55,6 +55,9 @@ LABEL org.opencontainers.image.title="Teleport" \
 
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 ENV TELEPORT_TOOLS_VERSION=off
+
+EXPOSE 3022 3023 3024 3025 3026 3080
+VOLUME /var/lib/teleport
 
 STOPSIGNAL SIGQUIT
 

@@ -42,3 +42,5 @@ RUN set -eux; \
 
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 ENV TELEPORT_TOOLS_VERSION=off
+
+STOPSIGNAL SIGQUIT

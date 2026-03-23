@@ -14,8 +14,8 @@ VARDIR=/var/lib/teleport
 echo "Starting Teleport installation..."
 cd $(dirname $0)
 mkdir -p $VARDIR $BINDIR
-cp -f teleport tctl $BINDIR/ || exit 1
-for bin in tsh tbot fdpass-teleport teleport-update; do
+cp -f teleport tctl tsh $BINDIR/ || exit 1
+for bin in tbot fdpass-teleport teleport-update; do
   [ -f "$bin" ] && cp -f "$bin" $BINDIR/
 done
 
