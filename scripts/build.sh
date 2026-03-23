@@ -278,7 +278,8 @@ else
   go mod download 2>/dev/null || go get 2>/dev/null || true
   echo "::endgroup::"
 
-  for x in 'tbot' 'tctl' 'tsh' 'teleport' 'teleport-update' 'fdpass-teleport'; do
+  # fdpass-teleport is Rust — built separately, not part of the Go build loop
+  for x in 'tbot' 'tctl' 'tsh' 'teleport' 'teleport-update'; do
     if [[ ! -d "./tool/${x}" ]]; then
       # tbot and teleport-update don't exist in older versions — that's fine
       continue
@@ -311,12 +312,6 @@ else
         # Upstream: always CGO_ENABLED=0, no feature tags
         BINARY_CGO=0
         BINARY_TAGS=""
-        ;;
-      fdpass-teleport)
-        # Small helper binary; CGO_ENABLED=0, base tags only
-        if [[ "${GO_OS}" != "windows" ]]; then
-          BINARY_CGO=0
-        fi
         ;;
       tctl)
         BINARY_TAGS="${PAM_TAG} ${BASE_TAGS}"
@@ -356,6 +351,13 @@ else
       exit 1
     fi
   done
+fi
+
+# --- fdpass-teleport (pre-built Rust binary, Linux amd64/arm64 only) ---
+if [[ "${GO_OS}" == "linux" && -f "${REF_PWD}/fdpass/fdpass-teleport" ]]; then
+  cp "${REF_PWD}/fdpass/fdpass-teleport" "${REF_PWD}/dist/teleport/fdpass-teleport"
+  chmod +x "${REF_PWD}/dist/teleport/fdpass-teleport"
+  echo "=== fdpass-teleport copied from pre-built artifact"
 fi
 
 # Write VERSION file and copy examples

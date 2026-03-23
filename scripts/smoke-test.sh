@@ -131,7 +131,9 @@ if [[ "${GO_OS}" == "linux" && "${GO_ARCH}" == "amd64" && "$(uname -m 2>/dev/nul
     esac
     [[ -d "${bin}" ]] && continue
 
-    # Try --version first, fall back to version
+    # Try --version first, fall back to version subcommand.
+    # fdpass-teleport is a Rust helper with no --version; running it with no
+    # args prints usage and exits 1 — that still proves it launches.
     echo "::group::Launch test: ${NAME}"
     if "${bin}" --version 2>&1; then
       echo "::endgroup::"
@@ -139,6 +141,10 @@ if [[ "${GO_OS}" == "linux" && "${GO_ARCH}" == "amd64" && "$(uname -m 2>/dev/nul
     elif "${bin}" version 2>&1; then
       echo "::endgroup::"
       echo "  OK: ${NAME} version succeeded"
+    elif OUTPUT=$("${bin}" 2>&1) || [[ -n "${OUTPUT}" ]]; then
+      echo "${OUTPUT}"
+      echo "::endgroup::"
+      echo "  OK: ${NAME} launched (no version flag, but produced output)"
     else
       echo "::endgroup::"
       echo "  FAIL: ${NAME} failed to launch"
