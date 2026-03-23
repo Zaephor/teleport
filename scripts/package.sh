@@ -35,9 +35,12 @@ esac
 
 echo "=== Packaging ${VERSION} for ${PLATFORM_NAME}"
 
+# All known teleport binaries
+TELEPORT_BINARIES=(teleport tctl tsh tbot teleport-update fdpass-teleport)
+
 # Set permissions (skip on Windows — no chmod needed for .exe)
 if [[ "${OS}" != "windows" ]]; then
-  for x in teleport tctl tsh tbot teleport-update; do
+  for x in "${TELEPORT_BINARIES[@]}"; do
     if [[ -e "${DIST_DIR}/teleport/${x}" ]]; then
       chmod +x "${DIST_DIR}/teleport/${x}"
     fi
@@ -97,33 +100,53 @@ else
   echo "::endgroup::"
 fi
 
-# Prepare nfpm tmp directory
+# Prepare nfpm tmp directory — copy all available binaries
 NFPM_TMP="${BASE_DIR}/tmp"
 mkdir -p "${NFPM_TMP}"
-for x in teleport tctl tsh tbot teleport-update; do
+for x in "${TELEPORT_BINARIES[@]}"; do
   if [[ -e "${DIST_DIR}/teleport/${x}" ]]; then
     cp "${DIST_DIR}/teleport/${x}" "${NFPM_TMP}/"
   fi
 done
 
-# Determine which nfpm config to use (with or without tbot)
-if [[ -e "${NFPM_TMP}/tbot" ]]; then
-  NFPM_TEMPLATE="${CI_DIR}/nfpm-tbot.yaml"
-else
-  NFPM_TEMPLATE="${CI_DIR}/nfpm.yaml"
-fi
-
+NFPM_TEMPLATE="${CI_DIR}/nfpm.yaml"
 if [[ ! -f "${NFPM_TEMPLATE}" ]]; then
   echo "Warning: nfpm template not found at ${NFPM_TEMPLATE}, skipping DEB/RPM"
   exit 0
 fi
 
-# Ensure ./ci/ is accessible for nfpm (service file paths in nfpm.yaml reference ./ci/)
-if [[ ! -d "./ci" && -d "${CI_DIR}" ]]; then
-  ln -sf "$(cd "${CI_DIR}" && pwd)" ./ci
-fi
+# Generate maintainer scripts: use upstream teleport-update if available, otherwise fallback
+SCRIPTS_DIR="${CI_DIR}/scripts"
+if [[ -e "${NFPM_TMP}/teleport-update" ]]; then
+  cp "${SCRIPTS_DIR}/postinst.sh" "${NFPM_TMP}/postinst.sh"
+  cp "${SCRIPTS_DIR}/prerm.sh" "${NFPM_TMP}/prerm.sh"
+else
+  # Fallback postinst: create symlinks manually
+  cat > "${NFPM_TMP}/postinst.sh" <<'POSTINST'
+#!/bin/bash
+set -eu
+for bin in /opt/teleport/system/bin/*; do
+  [ -f "$bin" ] && [ -x "$bin" ] && ln -sf "$bin" "/usr/local/bin/$(basename "$bin")"
+done
+POSTINST
 
-# Generate nfpm config with substitutions
+  # Fallback prerm: remove symlinks on package removal
+  cat > "${NFPM_TMP}/prerm.sh" <<'PRERM'
+#!/bin/bash
+set -eu
+case "${1:-}" in
+  remove|0)
+    for bin in /opt/teleport/system/bin/*; do
+      name=$(basename "$bin")
+      [ -L "/usr/local/bin/$name" ] && rm -f "/usr/local/bin/$name"
+    done
+    ;;
+esac
+PRERM
+fi
+chmod +x "${NFPM_TMP}/postinst.sh" "${NFPM_TMP}/prerm.sh"
+
+# Generate nfpm config: start from template, append binary entries dynamically
 NFPM_CONFIG="${BASE_DIR}/nfpm-generated.yaml"
 # nfpm expects version without 'v' prefix for proper deb/rpm versioning
 NFPM_VERSION="${VERSION#v}"
@@ -139,6 +162,18 @@ case "${NFPM_ARCH}" in
 esac
 sed -e "s#%VERSION%#${NFPM_VERSION}#g" -e "s#%ARCH%#${NFPM_ARCH}#g" -e "s#%NAME%#${PKG_NAME}#g" "${NFPM_TEMPLATE}" > "${NFPM_CONFIG}"
 
+# Append binary entries for each binary found in tmp/
+for x in "${TELEPORT_BINARIES[@]}"; do
+  if [[ -e "${NFPM_TMP}/${x}" ]]; then
+    cat >> "${NFPM_CONFIG}" <<EOF
+  - src: ./tmp/${x}
+    dst: /opt/teleport/system/bin/${x}
+    file_info:
+      mode: 0755
+EOF
+  fi
+done
+
 # Build DEB and RPM
 echo "::group::build DEB"
 "${NFPM_BIN}" package -f "${NFPM_CONFIG}" -p deb -t "${ARTIFACTS_DIR}/" 2>&1 || echo "DEB packaging failed (non-fatal)"
@@ -150,10 +185,6 @@ echo "::endgroup::"
 
 # Cleanup
 rm -rf "${NFPM_TMP}" "${NFPM_CONFIG}"
-# Remove ci symlink if we created it
-if [[ -L "./ci" ]]; then
-  rm -f "./ci"
-fi
 
 echo "=== Packaging complete"
 ls -la "${ARTIFACTS_DIR}/"

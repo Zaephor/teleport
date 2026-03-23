@@ -1,40 +1,40 @@
-# nfpm example config file
-#
-# check https://nfpm.goreleaser.com/configuration for detailed usage
-#
 name: "%NAME%"
 arch: "%ARCH%"
 platform: "linux"
 version: "%VERSION%"
 release: "1"
 section: "default"
-priority: "extra"
+priority: "optional"
 provides:
-- teleport
+  - teleport
 maintainer: "Zaephor <Zaephor@users.noreply.github.com>"
 description: |
-  multi-arch builds of teleport
+  Teleport provides on-demand, least-privileged access to your infrastructure,
+  on a foundation of cryptographic identity and zero trust, with built-in
+  identity and policy governance. Multi-arch community builds.
 vendor: ""
-homepage: "https://github.com/zaephor/teleport"
-license: "MIT"
+homepage: "https://github.com/Zaephor/teleport"
+license: "AGPL-3.0"
+scripts:
+  postinstall: ./tmp/postinst.sh
+  preremove: ./tmp/prerm.sh
+rpm:
+  scripts:
+    posttrans: ./tmp/postinst.sh
 contents:
-- src: ./tmp/teleport
-  dst: /usr/local/bin/teleport
-  file_info:
-    mode: 0755
-- src: ./tmp/tctl
-  dst: /usr/local/bin/tctl
-  file_info:
-    mode: 0755
-- src: ./tmp/tsh
-  dst: /usr/local/bin/tsh
-  file_info:
-    mode: 0755
-- src: ./ci/upstart-teleport.conf
-  dst: /etc/init/teleport.conf
-  file_info:
-    mode: 0644
-- src: ./ci/systemd-teleport.service
-  dst: /lib/systemd/system/teleport.service
-  file_info:
-    mode: 0644
+  # Systemd service
+  - src: ./systemd-teleport.service
+    dst: /opt/teleport/system/lib/systemd/system/teleport.service
+    file_info:
+      mode: 0644
+  # Upstart service (Ubuntu 14.04)
+  - src: ./upstart-teleport.conf
+    dst: /etc/init/teleport.conf
+    file_info:
+      mode: 0644
+  # Data directory
+  - dst: /var/lib/teleport
+    type: dir
+    file_info:
+      mode: 0700
+  # Binaries appended dynamically by package.sh

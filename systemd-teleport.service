@@ -1,15 +1,17 @@
 [Unit]
-Description=Teleport SSH Service
-After=network-online.target
-Wants=network-online.target
+Description=Teleport Service
+After=network.target
 
 [Service]
 Type=simple
-Restart=on-failure
-ExecStartPre=/bin/sh -c 'if [ ! -e /etc/teleport.yaml ]; then /usr/local/bin/teleport configure > /etc/teleport.yaml ; fi'
-ExecStart=/usr/local/bin/teleport start --config=/etc/teleport.yaml --pid-file=/run/teleport.pid
-ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+EnvironmentFile=-/etc/default/teleport
+ExecStart=/usr/local/bin/teleport start --config /etc/teleport.yaml --pid-file=/run/teleport.pid
+# systemd before 239 needs an absolute path
+ExecReload=/bin/sh -c "exec pkill -HUP -L -F /run/teleport.pid"
 PIDFile=/run/teleport.pid
+LimitNOFILE=524288
 
 [Install]
 WantedBy=multi-user.target
