@@ -109,7 +109,7 @@ elif [[ -x "${BASE_DIR}/bin/nfpm" ]]; then
 else
   echo "::group::install nfpm"
   mkdir -p "${BASE_DIR}/bin"
-  NFPM_TOOL_VERSION="2.6.0"
+  NFPM_TOOL_VERSION="2.45.2"
   NFPM_TMP_DL=$(mktemp -d)
   trap "rm -rf ${NFPM_TMP_DL}" RETURN 2>/dev/null || true
   curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_TOOL_VERSION}/nfpm_${NFPM_TOOL_VERSION}_Linux_x86_64.tar.gz" -o "${NFPM_TMP_DL}/nfpm.tar.gz"
