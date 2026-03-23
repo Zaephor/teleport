@@ -1,0 +1,17 @@
+#!/usr/bin/with-contenv bash
+# Start teleport under s6 supervision
+
+umask "${UMASK_SET:-022}"
+
+ARGS=("start")
+ARGS+=("--config=${TP_CONFIG:-/config/teleport/teleport.yaml}")
+
+# Convenience flags
+if [ "${TP_INSECURE:-}" = "true" ]; then
+    ARGS+=("--insecure")
+fi
+if [ "${TP_INSECURE_NO_TLS:-}" = "true" ]; then
+    ARGS+=("--insecure-no-tls")
+fi
+
+exec /usr/local/bin/teleport "${ARGS[@]}"

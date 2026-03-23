@@ -1,0 +1,26 @@
+#!/usr/bin/with-contenv bash
+# Initialize teleport config and data directory
+# Note: teleport runs as root (needs PAM, SSH, low port access)
+
+CONFIG_FILE="${TP_CONFIG:-/config/teleport/teleport.yaml}"
+DATA_DIR="/config/teleport"
+
+mkdir -p "${DATA_DIR}"
+
+# Generate default config if none exists
+if [ ! -f "${CONFIG_FILE}" ]; then
+    echo "[init-teleport] Generating default config at ${CONFIG_FILE}"
+    if /usr/local/bin/teleport configure > "${CONFIG_FILE}" 2>&1; then
+        # Rewrite data_dir to use LSIO /config volume
+        sed -i 's|^\(\s*data_dir:\s*\)/var/lib/teleport|\1'"${DATA_DIR}"'|' "${CONFIG_FILE}"
+    else
+        echo "[init-teleport] teleport configure unavailable, writing minimal config"
+        cat > "${CONFIG_FILE}" <<EOF
+teleport:
+  data_dir: ${DATA_DIR}
+  log:
+    output: stderr
+    severity: INFO
+EOF
+    fi
+fi

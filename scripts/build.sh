@@ -183,6 +183,15 @@ mkdir -p "${REF_PWD}/dist/teleport"
 git config --global --add safe.directory "${SOURCE_DIR}"
 cd "${SOURCE_DIR}"
 
+# Compute git ref for version stamp
+GITREF=""
+if command -v git &>/dev/null; then
+  GITREF=$(git describe --tags --always 2>/dev/null || echo "${REF_VER}")
+fi
+if [[ -n "${GITREF}" ]]; then
+  VERSION_LDFLAGS="${VERSION_LDFLAGS} -X github.com/gravitational/teleport/api/types.gitref=${GITREF}"
+fi
+
 # Resolve webassets_embed tag now that SOURCE_DIR is available
 # Three eras: v10+ (root webassets_embed.go), v8-v9 (lib/web/static_embed.go), v2-v7 (zip-append)
 if [[ "${BUILD_VARIANT}" == "upstream" ]]; then
@@ -269,7 +278,7 @@ else
   go mod download 2>/dev/null || go get 2>/dev/null || true
   echo "::endgroup::"
 
-  for x in 'tbot' 'tctl' 'tsh' 'teleport' 'teleport-update'; do
+  for x in 'tbot' 'tctl' 'tsh' 'teleport' 'teleport-update' 'fdpass-teleport'; do
     if [[ ! -d "./tool/${x}" ]]; then
       # tbot and teleport-update don't exist in older versions — that's fine
       continue
@@ -302,6 +311,12 @@ else
         # Upstream: always CGO_ENABLED=0, no feature tags
         BINARY_CGO=0
         BINARY_TAGS=""
+        ;;
+      fdpass-teleport)
+        # Small helper binary; CGO_ENABLED=0, base tags only
+        if [[ "${GO_OS}" != "windows" ]]; then
+          BINARY_CGO=0
+        fi
         ;;
       tctl)
         BINARY_TAGS="${PAM_TAG} ${BASE_TAGS}"

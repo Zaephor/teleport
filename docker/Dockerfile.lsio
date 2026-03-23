@@ -1,7 +1,7 @@
 FROM lsiobase/ubuntu:noble
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl && \
+    apt-get install -y --no-install-recommends ca-certificates curl libpam0g && \
     rm -rf /var/lib/apt/lists/*
 
 EXPOSE 3022 3023 3024 3025 3026 3080
@@ -18,7 +18,6 @@ LABEL org.opencontainers.image.title="Teleport" \
       org.opencontainers.image.version="${RELEASE}" \
       maintainer="Zaephor <Zaephor@users.noreply.github.com>"
 
-# Map Docker platform to release artifact arch name, download and install binaries
 RUN set -eux; \
     ARCH="$(dpkg --print-architecture)"; \
     case "${ARCH}" in \
@@ -30,9 +29,16 @@ RUN set -eux; \
     URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE}/teleport-${RELEASE}-${ARTIFACT_ARCH}-bin.tar.gz"; \
     curl -fsSL "${URL}" -o /tmp/teleport.tar.gz; \
     tar -xzf /tmp/teleport.tar.gz -C /usr/local/bin --strip-components=1 \
-      teleport/teleport teleport/tctl teleport/tsh; \
-    tar -xzf /tmp/teleport.tar.gz -C /usr/local/bin --strip-components=1 \
-      teleport/tbot 2>/dev/null || true; \
+      teleport/teleport teleport/tctl; \
+    for bin in tsh tbot fdpass-teleport teleport-update; do \
+      tar -xzf /tmp/teleport.tar.gz -C /usr/local/bin --strip-components=1 \
+        "teleport/${bin}" 2>/dev/null || true; \
+    done; \
     rm -f /tmp/teleport.tar.gz; \
-    chmod +x /usr/local/bin/teleport /usr/local/bin/tctl /usr/local/bin/tsh; \
-    chmod +x /usr/local/bin/tbot 2>/dev/null || true
+    chmod +x /usr/local/bin/teleport /usr/local/bin/tctl; \
+    chmod +x /usr/local/bin/tsh /usr/local/bin/tbot /usr/local/bin/fdpass-teleport \
+      /usr/local/bin/teleport-update 2>/dev/null || true; \
+    apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV TELEPORT_TOOLS_VERSION=off
