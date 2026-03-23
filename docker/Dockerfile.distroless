@@ -1,0 +1,63 @@
+FROM debian:bookworm-slim AS build
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates curl dpkg-dev dumb-init libpam0g libaudit1 libcap-ng0 && \
+    rm -rf /var/lib/apt/lists/*
+
+ARG RELEASE
+ARG GITHUB_REPO=Zaephor/teleport
+
+RUN set -eux; \
+    mkdir -p /staging/usr/bin /staging/usr/local/bin /staging/etc/teleport /staging/var/lib/teleport; \
+    ARCH="$(dpkg --print-architecture)"; \
+    case "${ARCH}" in \
+      amd64)  ARTIFACT_ARCH="linux-amd64" ;; \
+      arm64)  ARTIFACT_ARCH="linux-arm64" ;; \
+      armhf)  ARTIFACT_ARCH="linux-arm" ;; \
+      *)      echo "Unsupported arch: ${ARCH}"; exit 1 ;; \
+    esac; \
+    URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE}/teleport-${RELEASE}-${ARTIFACT_ARCH}-bin.tar.gz"; \
+    curl -fsSL "${URL}" -o /tmp/teleport.tar.gz; \
+    tar -xzf /tmp/teleport.tar.gz -C /staging/usr/local/bin --strip-components=1 \
+      teleport/teleport teleport/tctl; \
+    for bin in tsh tbot fdpass-teleport teleport-update; do \
+      tar -xzf /tmp/teleport.tar.gz -C /staging/usr/local/bin --strip-components=1 \
+        "teleport/${bin}" 2>/dev/null || true; \
+    done; \
+    rm -f /tmp/teleport.tar.gz; \
+    rm -f /staging/usr/local/bin/teleport-update; \
+    chmod +x /staging/usr/local/bin/teleport /staging/usr/local/bin/tctl; \
+    chmod +x /staging/usr/local/bin/tsh /staging/usr/local/bin/tbot /staging/usr/local/bin/fdpass-teleport \
+      2>/dev/null || true; \
+    cp /usr/bin/dumb-init /staging/usr/bin/dumb-init; \
+    # Copy PAM and related libraries (not present in distroless) \
+    LIB_DIR="$(dpkg-architecture -qDEB_HOST_MULTIARCH)"; \
+    mkdir -p "/staging/usr/lib/${LIB_DIR}"; \
+    cp "/usr/lib/${LIB_DIR}/libpam.so"* "/staging/usr/lib/${LIB_DIR}/"; \
+    cp "/usr/lib/${LIB_DIR}/libaudit.so"* "/staging/usr/lib/${LIB_DIR}/"; \
+    cp "/usr/lib/${LIB_DIR}/libcap-ng.so"* "/staging/usr/lib/${LIB_DIR}/"; \
+    # Copy CA certificates \
+    mkdir -p /staging/etc/ssl/certs; \
+    cp /etc/ssl/certs/ca-certificates.crt /staging/etc/ssl/certs/ca-certificates.crt
+
+FROM gcr.io/distroless/cc-debian12:nonroot
+
+ARG RELEASE
+ARG GITHUB_REPO=Zaephor/teleport
+
+COPY --from=build /staging /
+
+LABEL org.opencontainers.image.title="Teleport" \
+      org.opencontainers.image.source="https://github.com/${GITHUB_REPO}" \
+      org.opencontainers.image.description="Multi-arch builds of Teleport" \
+      org.opencontainers.image.version="${RELEASE}" \
+      maintainer="Zaephor <Zaephor@users.noreply.github.com>"
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV TELEPORT_TOOLS_VERSION=off
+
+STOPSIGNAL SIGQUIT
+
+ENTRYPOINT ["/usr/bin/dumb-init", "/usr/local/bin/teleport", "start"]
+CMD ["-c", "/etc/teleport/teleport.yaml"]

@@ -20,10 +20,20 @@ BUILD_VARIANT="${BUILD_VARIANT:-}"
 CLEAN_ARCH="${ARCH_NAME%-upstream}"
 CLEAN_ARCH="${CLEAN_ARCH%-lite}"
 
+# Map arch names to upstream tarball naming convention
+# CLEAN_ARCH uses Debian names (armhf, i386) but upstream Gravitational uses arm, 386
+# Keep CLEAN_ARCH intact for DEB/RPM where Debian names are correct
+TARBALL_ARCH="${CLEAN_ARCH}"
+case "${TARBALL_ARCH}" in
+  *-armhf) TARBALL_ARCH="${TARBALL_ARCH%-armhf}-arm" ;;
+  *-i386)  TARBALL_ARCH="${TARBALL_ARCH%-i386}-386" ;;
+  *-386)   TARBALL_ARCH="${TARBALL_ARCH%-386}-386" ;;
+esac
+
 # Tarball naming: upstream matches gravitational CDN convention
 case "${BUILD_VARIANT}" in
-  upstream) PLATFORM_NAME="${CLEAN_ARCH}-bin" ;;
-  lite)     PLATFORM_NAME="${CLEAN_ARCH}-lite" ;;
+  upstream) PLATFORM_NAME="${TARBALL_ARCH}-bin" ;;
+  lite)     PLATFORM_NAME="${TARBALL_ARCH}-lite" ;;
   *)        echo "ERROR: Unknown BUILD_VARIANT '${BUILD_VARIANT}'" >&2; exit 1 ;;
 esac
 
@@ -65,6 +75,15 @@ if [[ "${OS}" == "windows" ]]; then
   echo "Created ${ARCHIVE}"
 else
   # tar.gz for Linux and macOS
+  # Include upstream install script and LICENSE in tarball
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -f "${SCRIPT_DIR}/install" ]]; then
+    cp "${SCRIPT_DIR}/install" "${DIST_DIR}/teleport/install"
+    chmod +x "${DIST_DIR}/teleport/install"
+  fi
+  if [[ -f "${BASE_DIR}/LICENSE" ]]; then
+    cp "${BASE_DIR}/LICENSE" "${DIST_DIR}/teleport/LICENSE"
+  fi
   cd "${DIST_DIR}"
   ARCHIVE="teleport-${VERSION}-${PLATFORM_NAME}.tar.gz"
   tar czf "${ARTIFACTS_DIR}/${ARCHIVE}" teleport/
@@ -120,6 +139,11 @@ SCRIPTS_DIR="${CI_DIR}/scripts"
 if [[ -e "${NFPM_TMP}/teleport-update" ]]; then
   cp "${SCRIPTS_DIR}/postinst.sh" "${NFPM_TMP}/postinst.sh"
   cp "${SCRIPTS_DIR}/prerm.sh" "${NFPM_TMP}/prerm.sh"
+  # RPM no-op postinstall: RPM uses posttrans instead of postinstall
+  cat > "${NFPM_TMP}/rpm-postinst-noop.sh" <<'RPM_NOOP'
+#!/bin/bash
+# No-op: RPM uses posttrans instead of postinstall
+RPM_NOOP
 else
   # Fallback postinst: create symlinks manually
   cat > "${NFPM_TMP}/postinst.sh" <<'POSTINST'
@@ -143,8 +167,14 @@ case "${1:-}" in
     ;;
 esac
 PRERM
+
+  # RPM no-op postinstall: RPM uses posttrans instead of postinstall
+  cat > "${NFPM_TMP}/rpm-postinst-noop.sh" <<'RPM_NOOP'
+#!/bin/bash
+# No-op: RPM uses posttrans instead of postinstall
+RPM_NOOP
 fi
-chmod +x "${NFPM_TMP}/postinst.sh" "${NFPM_TMP}/prerm.sh"
+chmod +x "${NFPM_TMP}/postinst.sh" "${NFPM_TMP}/prerm.sh" "${NFPM_TMP}/rpm-postinst-noop.sh"
 
 # Generate nfpm config: start from template, append binary entries dynamically
 NFPM_CONFIG="${BASE_DIR}/nfpm-generated.yaml"

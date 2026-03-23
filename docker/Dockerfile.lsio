@@ -1,7 +1,7 @@
 FROM lsiobase/ubuntu:noble
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl libpam0g && \
+    apt-get install -y --no-install-recommends ca-certificates curl libpam0g libaudit1 libcap-ng0 && \
     rm -rf /var/lib/apt/lists/*
 
 EXPOSE 3022 3023 3024 3025 3026 3080
@@ -23,7 +23,7 @@ RUN set -eux; \
     case "${ARCH}" in \
       amd64)  ARTIFACT_ARCH="linux-amd64" ;; \
       arm64)  ARTIFACT_ARCH="linux-arm64" ;; \
-      armhf)  ARTIFACT_ARCH="linux-armhf" ;; \
+      armhf)  ARTIFACT_ARCH="linux-arm" ;; \
       *)      echo "Unsupported arch: ${ARCH}"; exit 1 ;; \
     esac; \
     URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE}/teleport-${RELEASE}-${ARTIFACT_ARCH}-bin.tar.gz"; \
@@ -35,9 +35,10 @@ RUN set -eux; \
         "teleport/${bin}" 2>/dev/null || true; \
     done; \
     rm -f /tmp/teleport.tar.gz; \
+    rm -f /usr/local/bin/teleport-update; \
     chmod +x /usr/local/bin/teleport /usr/local/bin/tctl; \
     chmod +x /usr/local/bin/tsh /usr/local/bin/tbot /usr/local/bin/fdpass-teleport \
-      /usr/local/bin/teleport-update 2>/dev/null || true; \
+      2>/dev/null || true; \
     apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt

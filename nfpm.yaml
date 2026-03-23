@@ -3,7 +3,7 @@ arch: "%ARCH%"
 platform: "linux"
 version: "%VERSION%"
 release: "1"
-section: "default"
+section: "admin"
 priority: "optional"
 provides:
   - teleport
@@ -18,7 +18,13 @@ license: "AGPL-3.0"
 scripts:
   postinstall: ./tmp/postinst.sh
   preremove: ./tmp/prerm.sh
+overrides:
+  rpm:
+    scripts:
+      postinstall: ./tmp/rpm-postinst-noop.sh
 rpm:
+  # Note: nfpm builds RPMs natively in Go (not via rpmbuild),
+  # so .build-id links are not generated and need no suppression.
   scripts:
     posttrans: ./tmp/postinst.sh
 contents:
@@ -37,4 +43,9 @@ contents:
     type: dir
     file_info:
       mode: 0700
+  # Versions directory (used by teleport-update)
+  - dst: /var/lib/teleport/versions
+    type: dir
+    file_info:
+      mode: 0755
   # Binaries appended dynamically by package.sh
