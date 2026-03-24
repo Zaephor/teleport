@@ -33,7 +33,7 @@ sudo apt-get -y update
 echo "::endgroup::"
 
 echo "::group::install base packages"
-sudo apt-get -f -y install curl wget git libpam0g-dev binutils bison gcc make \
+sudo apt-get -f -y install curl wget git zip libpam0g-dev binutils bison gcc make \
   binutils-multiarch build-essential bsdmainutils || true
 echo "::endgroup::"
 
