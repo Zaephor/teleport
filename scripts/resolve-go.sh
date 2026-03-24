@@ -48,4 +48,16 @@ if [[ -z "${GO_VERSION}" ]]; then
   GO_VERSION="1.16"
 fi
 
+# 5) Platform minimums — some Go versions lack support for certain OS/arch
+# GO_OS and GO_ARCH are set by the workflow matrix
+GO_MAJOR="${GO_VERSION%%.*}"
+GO_MINOR="${GO_VERSION#*.}"
+GO_MINOR="${GO_MINOR%%.*}"
+
+# darwin/arm64 requires Go 1.16+ (Apple Silicon support added in 1.16)
+if [[ "${GO_OS:-}" == "darwin" && "${GO_MINOR}" -lt 16 ]]; then
+  echo "Platform minimum: darwin requires Go 1.16+ (resolved ${GO_VERSION}), bumping" >&2
+  GO_VERSION="1.16"
+fi
+
 echo "${GO_VERSION}"

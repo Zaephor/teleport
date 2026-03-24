@@ -272,6 +272,8 @@ jobs:
 
       - name: Resolve Go version
         id: resolve_go
+        env:
+          GO_OS: ${{ matrix.go_os }}
         run: |
           GO_VERSION=$(bash ci/scripts/resolve-go.sh "${{ inputs.tp_version }}" "go/src/${{ env.UPSTREAM }}" ci)
           echo "go_version=${GO_VERSION}" >> "$GITHUB_OUTPUT"
@@ -571,6 +573,8 @@ jobs:
 
       - name: Resolve Go version
         id: resolve_go
+        env:
+          GO_OS: ${{ matrix.go_os }}
         run: |
           GO_VERSION=$(bash ci/scripts/resolve-go.sh "${{ inputs.tp_version }}" "go/src/${{ env.UPSTREAM }}" ci)
           echo "go_version=${GO_VERSION}" >> "$GITHUB_OUTPUT"
