@@ -314,9 +314,10 @@ else
     BINARY_TAGS="${BASE_TAGS}"
     case "${x}" in
       tbot)
-        # Upstream: CGO_ENABLED=0 for tbot on non-Windows.
-        # On Windows, tncon package requires CGO (//go:build windows && cgo)
-        if [[ "${GO_OS}" != "windows" ]]; then
+        # Upstream v15+: CGO_ENABLED=0 for tbot on non-Windows.
+        # Older versions (v10-v14) need CGO_ENABLED=1 (imports BPF, PKCS11).
+        MAJOR=$(echo "${REF_VER#v}" | cut -d. -f1)
+        if [[ "${MAJOR}" -ge 15 && "${GO_OS}" != "windows" ]]; then
           BINARY_CGO=0
         fi
         ;;

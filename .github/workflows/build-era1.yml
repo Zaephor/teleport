@@ -322,7 +322,7 @@ jobs:
           tag_name: ${{ inputs.tp_version }}
           files: artifacts/*
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
 
   build-extra:
     needs: [build-webassets]
@@ -384,16 +384,6 @@ jobs:
             pam: "false"
             cc: ""
             runner: macos-14
-            build_variant: "lite"
-          - name: windows-amd64-lite
-            go_os: windows
-            go_arch: amd64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ""
-            pam: "false"
-            cc: ""
-            runner: windows-latest
             build_variant: "lite"
           - name: darwin-amd64-upstream
             go_os: darwin
@@ -605,7 +595,7 @@ jobs:
           tag_name: ${{ inputs.tp_version }}
           files: artifacts/*
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
 
   docker:
     needs: [build-core, build-extra]

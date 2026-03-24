@@ -458,7 +458,7 @@ jobs:
           tag_name: ${{ inputs.tp_version }}
           files: artifacts/*
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
 
   build-extra:
     needs: [build-webassets]
@@ -741,7 +741,7 @@ jobs:
           tag_name: ${{ inputs.tp_version }}
           files: artifacts/*
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
 
   docker:
     needs: [build-core, build-extra]
