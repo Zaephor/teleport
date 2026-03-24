@@ -71,23 +71,40 @@ echo "::endgroup::"
 
 # --- Output ---
 LIB_PATH="target/${RUST_TARGET}/release/librdp_client.a"
-# cbindgen generates the header at the crate root during cargo build (via build.rs)
-HEADER_PATH="lib/srv/desktop/rdp/rdpclient/librdpclient.h"
 
-if [[ -f "${LIB_PATH}" ]]; then
-  # Copy library and header to a flat output directory for artifact upload
-  OUTPUT_DIR="${REF_PWD}/rdpclient"
-  mkdir -p "${OUTPUT_DIR}"
-  cp "${LIB_PATH}" "${OUTPUT_DIR}/librdp_client.a"
-
-  if [[ -f "${HEADER_PATH}" ]]; then
-    cp "${HEADER_PATH}" "${OUTPUT_DIR}/librdpclient.h"
-    echo "=== rdp-client built: ${RUST_TARGET} (lib + header)"
-  else
-    echo "ERROR: librdpclient.h not found at ${HEADER_PATH} after build"
-    exit 1
-  fi
-else
+if [[ ! -f "${LIB_PATH}" ]]; then
   echo "ERROR: librdp_client.a not found after build"
   exit 1
+fi
+
+OUTPUT_DIR="${REF_PWD}/rdpclient"
+mkdir -p "${OUTPUT_DIR}"
+cp "${LIB_PATH}" "${OUTPUT_DIR}/librdp_client.a"
+
+# cbindgen generates the header during cargo build (via build.rs)
+# Header name and location vary across teleport versions:
+#   v18+: lib/srv/desktop/rdp/rdpclient/librdpclient.h
+#   v10-v17: lib/srv/desktop/rdp/rdpclient/librdprs.h (older name)
+# Search for it dynamically
+HEADER=""
+for candidate in \
+  "lib/srv/desktop/rdp/rdpclient/librdpclient.h" \
+  "lib/srv/desktop/rdp/rdpclient/librdprs.h"; do
+  if [[ -f "${candidate}" ]]; then
+    HEADER="${candidate}"
+    break
+  fi
+done
+
+if [[ -z "${HEADER}" ]]; then
+  # Last resort: find any generated .h in the rdpclient crate
+  HEADER=$(find lib/srv/desktop/rdp/rdpclient -name '*.h' -print -quit 2>/dev/null || true)
+fi
+
+if [[ -n "${HEADER}" && -f "${HEADER}" ]]; then
+  cp "${HEADER}" "${OUTPUT_DIR}/$(basename "${HEADER}")"
+  echo "=== rdp-client built: ${RUST_TARGET} (lib + header: $(basename "${HEADER}"))"
+else
+  echo "WARNING: rdp-client library built but no header found — copying lib only"
+  echo "=== rdp-client built: ${RUST_TARGET} (lib only, no header)"
 fi
