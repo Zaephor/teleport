@@ -297,11 +297,20 @@ else
       continue
     fi
 
-    # teleport server binary is Linux/macOS-only (uses syscall.Credential, SIGUSR1, etc.)
-    # Upstream doesn't build it for Windows either
-    if [[ "${x}" == "teleport" && "${GO_OS}" == "windows" ]]; then
-      echo "== ${x} - SKIPPED (server binary is Linux/macOS only)"
-      continue
+    # Windows platform exclusions (match upstream Makefile BINS_windows)
+    # Upstream ships: tsh (always), tctl (v16+). Never: teleport, tbot, teleport-update.
+    if [[ "${GO_OS}" == "windows" ]]; then
+      case "${x}" in
+        teleport)
+          echo "== ${x} - SKIPPED (server binary is Linux/macOS only)"
+          continue ;;
+        tbot)
+          echo "== ${x} - SKIPPED (not supported on Windows)"
+          continue ;;
+        teleport-update)
+          echo "== ${x} - SKIPPED (not supported on Windows)"
+          continue ;;
+      esac
     fi
 
     # Per-binary tags and CGO (match upstream Makefile)
@@ -360,10 +369,23 @@ else
     fi
 
     if [[ "${BUILT}" != "true" ]]; then
-      # tbot and teleport-update are optional — they were added in later versions
-      # and may fail to compile with newer toolchains on old source code
+      MAJOR=$(echo "${REF_VER#v}" | cut -d. -f1)
+
+      # Determine if this failure is fatal or can be skipped
+      SKIP_REASON=""
+
+      # tbot/teleport-update: source may not exist in older versions
       if [[ "${x}" == "tbot" || "${x}" == "teleport-update" ]]; then
-        echo "== ${x} - SKIPPED (optional binary, build failed)"
+        SKIP_REASON="optional binary, not present in all versions"
+      fi
+
+      # tctl on Windows pre-v16: upstream never shipped it, compilation is best-effort
+      if [[ "${x}" == "tctl" && "${GO_OS}" == "windows" && "${MAJOR}" -lt 16 ]]; then
+        SKIP_REASON="tctl not officially supported on Windows before v16"
+      fi
+
+      if [[ -n "${SKIP_REASON}" ]]; then
+        echo "== ${x} - SKIPPED (${SKIP_REASON})"
       else
         echo "== ${x} - FAILED (all linker flag combos exhausted)"
         exit 1
