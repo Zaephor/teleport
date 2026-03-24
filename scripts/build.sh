@@ -224,23 +224,32 @@ if [[ "${BUILD_VARIANT}" == "upstream" && "${GO_OS}" == "linux" && ("${GO_ARCH}"
   esac
 
   RDPCLIENT_LIB="target/${RUST_TARGET}/release/librdp_client.a"
-  # The Go source at lib/srv/desktop/rdp/rdpclient/client.go includes <librdpclient.h>
-  # CGO finds it in the same directory as the Go source file
-  RDPCLIENT_HEADER="lib/srv/desktop/rdp/rdpclient/librdpclient.h"
 
   # Check for pre-built library + header (downloaded from build-rdpclient artifact)
-  if [[ -f "${REF_PWD}/rdpclient/librdp_client.a" && -f "${REF_PWD}/rdpclient/librdpclient.h" ]]; then
+  # Header name varies across versions: librdpclient.h (v18+) or librdprs.h (v10-v17)
+  RDPCLIENT_HEADER_SRC=""
+  for candidate in "${REF_PWD}/rdpclient/librdpclient.h" "${REF_PWD}/rdpclient/librdprs.h"; do
+    if [[ -f "${candidate}" ]]; then
+      RDPCLIENT_HEADER_SRC="${candidate}"
+      break
+    fi
+  done
+
+  if [[ -f "${REF_PWD}/rdpclient/librdp_client.a" && -n "${RDPCLIENT_HEADER_SRC}" ]]; then
     mkdir -p "target/${RUST_TARGET}/release"
     cp "${REF_PWD}/rdpclient/librdp_client.a" "${RDPCLIENT_LIB}"
-    cp "${REF_PWD}/rdpclient/librdpclient.h" "${RDPCLIENT_HEADER}"
+    # Place header where CGO expects it (same directory as client.go)
+    HEADER_NAME="$(basename "${RDPCLIENT_HEADER_SRC}")"
+    cp "${RDPCLIENT_HEADER_SRC}" "lib/srv/desktop/rdp/rdpclient/${HEADER_NAME}"
     RDPCLIENT_TAG="desktop_access_rdp"
-    echo "=== RDP client ready: ${RUST_TARGET} (pre-built)"
+    echo "=== RDP client ready: ${RUST_TARGET} (pre-built, header: ${HEADER_NAME})"
   else
     # desktop_access_rdp exists in v8+; required from v10+
     MAJOR=$(echo "${REF_VER#v}" | cut -d. -f1)
     if [[ "${MAJOR}" -ge 10 ]]; then
       echo "ERROR: upstream variant requires rdp-client for v${MAJOR} but rdpclient artifact not found"
-      echo "  Expected: ${REF_PWD}/rdpclient/librdp_client.a and librdpclient.h"
+      echo "  Expected: ${REF_PWD}/rdpclient/librdp_client.a and header (.h)"
+      ls -la "${REF_PWD}/rdpclient/" 2>/dev/null || echo "  (rdpclient/ directory does not exist)"
       exit 1
     elif [[ "${MAJOR}" -ge 8 ]]; then
       echo "WARNING: rdp-client not found for v${MAJOR}, upstream build will lack RDP support"
@@ -279,7 +288,10 @@ else
   echo "::endgroup::"
 
   # fdpass-teleport is Rust — built separately, not part of the Go build loop
-  for x in 'tbot' 'tctl' 'tsh' 'teleport' 'teleport-update'; do
+  # Build order: core binaries first, optional ones last
+  # tbot and teleport-update are optional — they don't exist in older versions
+  # and may fail to compile with newer toolchains on old source
+  for x in 'teleport' 'tctl' 'tsh' 'tbot' 'teleport-update'; do
     if [[ ! -d "./tool/${x}" ]]; then
       # tbot and teleport-update don't exist in older versions — that's fine
       continue
@@ -347,8 +359,14 @@ else
     fi
 
     if [[ "${BUILT}" != "true" ]]; then
-      echo "== ${x} - FAILED (all linker flag combos exhausted)"
-      exit 1
+      # tbot and teleport-update are optional — they were added in later versions
+      # and may fail to compile with newer toolchains on old source code
+      if [[ "${x}" == "tbot" || "${x}" == "teleport-update" ]]; then
+        echo "== ${x} - SKIPPED (optional binary, build failed)"
+      else
+        echo "== ${x} - FAILED (all linker flag combos exhausted)"
+        exit 1
+      fi
     fi
   done
 fi
@@ -373,6 +391,7 @@ if [[ "${BUILD_VARIANT:-}" == "upstream" && -z "${WEBASSETS_TAG}" ]]; then
     if [[ -f "${REF_PWD}/dist/teleport/teleport" ]]; then
       echo "::group::Zip-append webassets (legacy v2-v7)"
       WEBASSETS_ZIP=$(mktemp /tmp/webassets-XXXXXX.zip)
+      rm -f "${WEBASSETS_ZIP}"
       (cd "${SOURCE_DIR}/webassets/teleport" && zip -qr "${WEBASSETS_ZIP}" .) 2>&1
       if [[ -s "${WEBASSETS_ZIP}" ]]; then
         BEFORE_SIZE=$(stat -c%s "${REF_PWD}/dist/teleport/teleport" 2>/dev/null || stat -f%z "${REF_PWD}/dist/teleport/teleport")
