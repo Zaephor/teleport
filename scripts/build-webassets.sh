@@ -118,7 +118,7 @@ echo "=== Building web assets from source"
 echo "::group::Install system dependencies"
 if command -v apt-get &>/dev/null; then
   apt-get update -qq 2>/dev/null || true
-  apt-get install -y -qq curl ca-certificates xz-utils make git gcc g++ pkg-config libssl-dev 2>/dev/null || true
+  apt-get install -y -qq curl ca-certificates xz-utils make git gcc g++ pkg-config libssl-dev python3 2>/dev/null || true
 fi
 echo "::endgroup::"
 

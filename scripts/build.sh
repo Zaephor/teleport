@@ -141,8 +141,18 @@ build_binary() {
       "-w ${VERSION_LDFLAGS}"
       "${VERSION_LDFLAGS}"
     )
+  elif [[ "${GO_OS}" == "darwin" ]]; then
+    # CGO_ENABLED=1 on Darwin: Apple linker, no ELF-specific flags
+    FLAGS=(
+      "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} ${PLATFORM_LDFLAGS}"
+      "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP}"
+      "-s -w ${VERSION_LDFLAGS}"
+      "-s ${VERSION_LDFLAGS}"
+      "-w ${VERSION_LDFLAGS}"
+      "${VERSION_LDFLAGS}"
+    )
   else
-    # CGO_ENABLED=1: try various external linker flag combos
+    # CGO_ENABLED=1 on Linux: try various external linker flag combos
     # Note: --long-plt and --no-plt are LINKER flags, passed via -Wl, through gcc
     FLAGS=(
       "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} ${PLATFORM_LDFLAGS}"
@@ -200,6 +210,12 @@ if [[ "${BUILD_VARIANT}" == "upstream" ]]; then
     if [[ -d "webassets/teleport" ]] && [[ -n "$(ls -A webassets/teleport/ 2>/dev/null)" ]]; then
       WEBASSETS_TAG="webassets_embed"
       echo "=== upstream variant: webassets_embed tag enabled"
+      # v8-v9: static_embed.go embeds from lib/web/build/webassets/ — copy assets there
+      if [[ -f "lib/web/static_embed.go" && ! -d "lib/web/build/webassets" ]]; then
+        mkdir -p lib/web/build/webassets
+        cp -r webassets/teleport/* lib/web/build/webassets/ 2>/dev/null || true
+        echo "=== copied webassets → lib/web/build/webassets/ (v8-v9 embed path)"
+      fi
     else
       echo "ERROR: upstream variant requires webassets but webassets/teleport/ is missing or empty"
       exit 1
