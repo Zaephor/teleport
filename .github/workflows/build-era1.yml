@@ -1,4 +1,4 @@
-name: "Build Era 1 (v2.0.1–v4.4.12)"
+name: "Build Era 1 (v2-v4)"
 
 on:
   workflow_call:

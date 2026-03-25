@@ -118,6 +118,46 @@ if [[ -n "${BUILD_VARIANT}" && -f "${DIST_DIR}/teleport" ]]; then
   esac
 fi
 
+# --- Binary manifest assertions ---
+MAJOR=0
+if [[ -n "${TP_VERSION:-}" ]]; then
+  MAJOR=$(echo "${TP_VERSION#v}" | cut -d. -f1)
+fi
+
+if [[ "${MAJOR}" -gt 0 && "${GO_OS}" == "linux" ]]; then
+  echo "=== Smoke test: binary manifest assertions (v${MAJOR}, ${GO_OS}/${GO_ARCH})"
+
+  # tbot expected for v9+ on linux
+  if [[ "${MAJOR}" -ge 9 ]]; then
+    if [[ -f "${DIST_DIR}/tbot" ]]; then
+      echo "  OK: tbot present (expected for v${MAJOR})"
+    else
+      echo "  FAIL: tbot missing (expected for v${MAJOR}+ on linux)"
+      FAIL=1
+    fi
+  fi
+
+  # fdpass-teleport expected for v16+ on linux amd64/arm64
+  if [[ "${MAJOR}" -ge 16 && ( "${GO_ARCH}" == "amd64" || "${GO_ARCH}" == "arm64" ) ]]; then
+    if [[ -f "${DIST_DIR}/fdpass-teleport" ]]; then
+      echo "  OK: fdpass-teleport present (expected for v${MAJOR})"
+    else
+      echo "  FAIL: fdpass-teleport missing (expected for v${MAJOR}+ on linux ${GO_ARCH})"
+      FAIL=1
+    fi
+  fi
+
+  # teleport-update expected for v17+ on linux
+  if [[ "${MAJOR}" -ge 17 ]]; then
+    if [[ -f "${DIST_DIR}/teleport-update" ]]; then
+      echo "  OK: teleport-update present (expected for v${MAJOR})"
+    else
+      echo "  FAIL: teleport-update missing (expected for v${MAJOR}+ on linux)"
+      FAIL=1
+    fi
+  fi
+fi
+
 # --- Launch test (linux-amd64 native only) ---
 if [[ "${GO_OS}" == "linux" && "${GO_ARCH}" == "amd64" && "$(uname -m 2>/dev/null)" == "x86_64" ]]; then
   echo "=== Smoke test: launch test (native linux-amd64)"

@@ -1,18 +1,18 @@
-name: "Build Era 4 (v12.0.0–v14.3.20)"
+name: "Build Era 4 (v10-v11)"
 
 on:
   workflow_call:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v13.0.0)"
+        description: "Teleport version tag (e.g. v10.0.0)"
         required: true
         type: string
   workflow_dispatch:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v13.0.0)"
+        description: "Teleport version tag (e.g. v10.0.0)"
         required: true
-        default: "v14.3.20"
+        default: "v11.3.7"
 
 permissions:
   contents: write    # needed for release creation
@@ -244,7 +244,6 @@ jobs:
 
       - name: Download rdp-client
         if: matrix.build_variant == 'upstream' && (matrix.go_arch == 'amd64' || matrix.go_arch == 'arm64')
-        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
@@ -455,16 +454,6 @@ jobs:
             cc: ""
             runner: macos-14
             build_variant: "lite"
-          - name: windows-amd64-lite
-            go_os: windows
-            go_arch: amd64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ""
-            pam: "false"
-            cc: ""
-            runner: windows-latest
-            build_variant: "lite"
           - name: darwin-amd64-upstream
             go_os: darwin
             go_arch: amd64
@@ -485,6 +474,16 @@ jobs:
             cc: ""
             runner: macos-14
             build_variant: "upstream"
+          - name: windows-amd64-lite
+            go_os: windows
+            go_arch: amd64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ""
+            pam: "false"
+            cc: ""
+            runner: windows-latest
+            build_variant: "lite"
 
     steps:
       - name: Checkout CI repo

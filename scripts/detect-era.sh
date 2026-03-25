@@ -1,5 +1,5 @@
 #!/bin/bash
-# detect-era.sh — Given a teleport version tag, output the era (1-5)
+# detect-era.sh — Given a teleport version tag, output the era (1-7)
 # Usage: detect-era.sh v3.2.1 → outputs "1"
 set -euo pipefail
 
@@ -19,12 +19,16 @@ fi
 
 if [[ "${MAJOR}" -le 4 ]]; then
   echo "1"
-elif [[ "${MAJOR}" -le 9 ]]; then
+elif [[ "${MAJOR}" -le 7 ]]; then
   echo "2"
-elif [[ "${MAJOR}" -le 11 ]]; then
+elif [[ "${MAJOR}" -le 9 ]]; then
   echo "3"
-elif [[ "${MAJOR}" -le 14 ]]; then
+elif [[ "${MAJOR}" -le 11 ]]; then
   echo "4"
-else
+elif [[ "${MAJOR}" -le 15 ]]; then
   echo "5"
+elif [[ "${MAJOR}" -eq 16 ]]; then
+  echo "6"
+else
+  echo "7"
 fi
