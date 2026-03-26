@@ -190,7 +190,27 @@ if [[ -f "pnpm-lock.yaml" ]]; then
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
   export PATH="${CARGO_HOME}/bin:${PATH}"
   rustup target add wasm32-unknown-unknown
+  cargo install wasm-pack 2>/dev/null || true
   echo "Rust: $(rustc --version)"
+  echo "wasm-pack: $(wasm-pack --version 2>/dev/null || echo 'not found')"
+  echo "::endgroup::"
+
+  # Install Go (Makefile uses go for version checks and wasm-related targets)
+  echo "::group::Install Go for Makefile"
+  if ! command -v go &>/dev/null; then
+    GO_WEBASSETS_VER="1.22.0"
+    ARCH_GO=""
+    case "$(uname -m)" in
+      x86_64)  ARCH_GO="amd64" ;;
+      aarch64) ARCH_GO="arm64" ;;
+      *)       ARCH_GO="amd64" ;;
+    esac
+    curl -fsSL "https://go.dev/dl/go${GO_WEBASSETS_VER}.linux-${ARCH_GO}.tar.gz" -o /tmp/go.tar.gz
+    tar -C /usr/local -xzf /tmp/go.tar.gz
+    export PATH="/usr/local/go/bin:${PATH}"
+    rm -f /tmp/go.tar.gz
+  fi
+  echo "Go: $(go version)"
   echo "::endgroup::"
 
   # Use upstream Makefile which handles wasm-bindgen, wasm-opt, pnpm deps, and build
