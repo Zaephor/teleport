@@ -317,12 +317,18 @@ else
     fi
 
     # Windows platform exclusions (match upstream Makefile BINS_windows)
-    # Upstream ships: tsh (always), tctl (v16+). Never: teleport, tbot, teleport-update.
+    # Upstream ships: tsh (always), tctl (v14+). Never: teleport, tbot, teleport-update.
     if [[ "${GO_OS}" == "windows" ]]; then
+      MAJOR=$(echo "${REF_VER#v}" | cut -d. -f1)
       case "${x}" in
         teleport)
           echo "== ${x} - SKIPPED (server binary is Linux/macOS only)"
           continue ;;
+        tctl)
+          if [[ "${MAJOR}" -lt 14 ]]; then
+            echo "== ${x} - SKIPPED (tctl not buildable on Windows before v14)"
+            continue
+          fi ;;
         tbot)
           echo "== ${x} - SKIPPED (not supported on Windows)"
           continue ;;
@@ -396,11 +402,6 @@ else
       # tbot/teleport-update: source may not exist in older versions
       if [[ "${x}" == "tbot" || "${x}" == "teleport-update" ]]; then
         SKIP_REASON="optional binary, not present in all versions"
-      fi
-
-      # tctl on Windows pre-v16: upstream never shipped it, compilation is best-effort
-      if [[ "${x}" == "tctl" && "${GO_OS}" == "windows" && "${MAJOR}" -lt 16 ]]; then
-        SKIP_REASON="tctl not officially supported on Windows before v16"
       fi
 
       if [[ -n "${SKIP_REASON}" ]]; then
