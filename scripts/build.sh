@@ -105,10 +105,11 @@ VERSION_LDFLAGS="-X github.com/gravitational/teleport/lib/modules.teleportBuildT
 
 # --- Platform-specific linker flags (match upstream common.mk) ---
 PLATFORM_LDFLAGS=""
-if [[ "${GO_OS}" == "darwin" && "${GO_ARCH}" == "arm64" ]]; then
+if [[ "${GO_OS}" == "darwin" ]]; then
   # Apple's new linker in Xcode 15+ breaks Go builds (Go issue #61229)
   # Use CGO_LDFLAGS to pass -ld_classic through the C compiler — works with any Go version.
   # Go 1.21+ also accepts -extldflags=-ld_classic but older Go doesn't.
+  # Affects both amd64 and arm64 on macos-14 runners.
   export CGO_LDFLAGS="${CGO_LDFLAGS:+${CGO_LDFLAGS} }-Wl,-ld_classic"
 fi
 
