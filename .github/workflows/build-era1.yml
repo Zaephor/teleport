@@ -72,10 +72,14 @@ jobs:
       - name: Save webassets to cache path
         if: steps.webassets-cache.outputs.cache-hit != 'true'
         run: |
-          sudo chown -R $(id -u):$(id -g) go/src/${{ env.UPSTREAM }}/webassets/ || true
-          mkdir -p cached-webassets
-          cp -r go/src/${{ env.UPSTREAM }}/webassets/* cached-webassets/
-          echo "Cached webassets: $(du -sh cached-webassets/ | cut -f1)"
+          if [[ -d "go/src/${{ env.UPSTREAM }}/webassets" ]]; then
+            sudo chown -R $(id -u):$(id -g) go/src/${{ env.UPSTREAM }}/webassets/ || true
+            mkdir -p cached-webassets
+            cp -r go/src/${{ env.UPSTREAM }}/webassets/* cached-webassets/
+            echo "Cached webassets: $(du -sh cached-webassets/ | cut -f1)"
+          else
+            echo "No webassets directory — skipping cache save"
+          fi
 
       - name: Upload web assets
         uses: actions/upload-artifact@v4
@@ -83,6 +87,7 @@ jobs:
           name: webassets-${{ inputs.tp_version }}
           path: go/src/${{ env.UPSTREAM }}/webassets/
           retention-days: 1
+          if-no-files-found: ignore
 
   build-core:
     needs: [build-webassets]
@@ -192,6 +197,7 @@ jobs:
 
       - name: Download web assets
         if: ${{ matrix.build_variant == 'upstream' }}
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: webassets-${{ inputs.tp_version }}
@@ -477,6 +483,7 @@ jobs:
 
       - name: Download web assets
         if: ${{ matrix.build_variant == 'upstream' }}
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: webassets-${{ inputs.tp_version }}
