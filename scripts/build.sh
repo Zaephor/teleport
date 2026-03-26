@@ -196,6 +196,12 @@ mkdir -p "${REF_PWD}/dist/teleport"
 git config --global --add safe.directory "${SOURCE_DIR}"
 cd "${SOURCE_DIR}"
 
+# Pre-modules versions (no go.mod) need GOPATH mode.
+# Go 1.16+ defaults GO111MODULE=on, breaking Godeps/Gopkg.lock projects.
+if [[ ! -f "go.mod" ]]; then
+  export GO111MODULE=off
+fi
+
 # Compute git ref for version stamp
 GITREF=""
 if command -v git &>/dev/null; then

@@ -1,4 +1,4 @@
-name: "Build Era 2 (v2.3-v4)"
+name: "Build Era 2 (v2.3)"
 
 on:
   workflow_call:
@@ -12,7 +12,7 @@ on:
       tp_version:
         description: "Teleport version tag (e.g. v3.2.1)"
         required: true
-        default: "v4.4.12"
+        default: "v2.3.6"
 
 permissions:
   contents: write    # needed for release creation
@@ -415,17 +415,6 @@ jobs:
             cc: ""
             runner: macos-14
             build_variant: "upstream"
-          - name: windows-amd64-lite
-            go_os: windows
-            go_arch: amd64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ""
-            pam: "false"
-            cc: ""
-            runner: windows-latest
-            build_variant: "lite"
-
     steps:
       - name: Checkout CI repo
         uses: actions/checkout@v4
