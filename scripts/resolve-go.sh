@@ -68,4 +68,11 @@ if [[ "${GO_OS:-}" == "darwin" && "${GO_MINOR}" -ge 17 && "${GO_MINOR}" -lt 21 ]
   GO_VERSION="1.21"
 fi
 
+# armhf (GOARM=6) cross-compile requires Go 1.10+ (Go 1.8-1.9 runtime objects
+# use wrong float ABI, causing VFP register mismatch at link time)
+if [[ "${GO_ARCH:-}" == "arm" && "${GO_ARM:-}" == "6" && "${GO_MINOR}" -lt 10 ]]; then
+  echo "Platform minimum: armhf cross-compile requires Go 1.10+ (resolved ${GO_VERSION}), bumping" >&2
+  GO_VERSION="1.10"
+fi
+
 echo "${GO_VERSION}"
