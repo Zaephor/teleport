@@ -1,6 +1,6 @@
 #!/bin/bash
-# detect-era.sh — Given a teleport version tag, output the era (1-7)
-# Usage: detect-era.sh v3.2.1 → outputs "1"
+# detect-era.sh — Given a teleport version tag, output the era (1-8)
+# Usage: detect-era.sh v3.2.1 → outputs "2"
 set -euo pipefail
 
 VERSION="${1:?Usage: detect-era.sh <version>}"
@@ -8,8 +8,10 @@ VERSION="${1:?Usage: detect-era.sh <version>}"
 # Strip leading 'v'
 VER="${VERSION#v}"
 
-# Extract major version
+# Extract major and minor version
 MAJOR="${VER%%.*}"
+MINOR="${VER#*.}"
+MINOR="${MINOR%%.*}"
 
 # Validate MAJOR is numeric
 if [[ ! "${MAJOR}" =~ ^[0-9]+$ ]]; then
@@ -17,18 +19,22 @@ if [[ ! "${MAJOR}" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
-if [[ "${MAJOR}" -le 4 ]]; then
+# Era 1: v2.0-v2.2 (no arm64/darwin/windows — vendored deps lack support)
+if [[ "${MAJOR}" -eq 2 && "${MINOR}" -lt 3 ]]; then
   echo "1"
-elif [[ "${MAJOR}" -le 7 ]]; then
+# Era 2: v2.3-v4 (full platform matrix, GOPATH builds)
+elif [[ "${MAJOR}" -le 4 ]]; then
   echo "2"
-elif [[ "${MAJOR}" -le 9 ]]; then
+elif [[ "${MAJOR}" -le 7 ]]; then
   echo "3"
-elif [[ "${MAJOR}" -le 11 ]]; then
+elif [[ "${MAJOR}" -le 9 ]]; then
   echo "4"
-elif [[ "${MAJOR}" -le 15 ]]; then
+elif [[ "${MAJOR}" -le 11 ]]; then
   echo "5"
-elif [[ "${MAJOR}" -eq 16 ]]; then
+elif [[ "${MAJOR}" -le 15 ]]; then
   echo "6"
-else
+elif [[ "${MAJOR}" -eq 16 ]]; then
   echo "7"
+else
+  echo "8"
 fi

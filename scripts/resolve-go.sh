@@ -54,10 +54,17 @@ GO_MAJOR="${GO_VERSION%%.*}"
 GO_MINOR="${GO_VERSION#*.}"
 GO_MINOR="${GO_MINOR%%.*}"
 
-# darwin requires Go 1.21+ (Xcode 15+ linker compatibility, Go issue #61229)
-# macos-13 is retired; macos-14 ships Xcode 15 which breaks Go < 1.21 CGO linking
-if [[ "${GO_OS:-}" == "darwin" && "${GO_MINOR}" -lt 21 ]]; then
-  echo "Platform minimum: darwin requires Go 1.21+ for Xcode 15 linker (resolved ${GO_VERSION}), bumping" >&2
+# darwin/arm64 requires Go 1.16+ (Apple Silicon support added in 1.16)
+if [[ "${GO_OS:-}" == "darwin" && "${GO_MINOR}" -lt 16 ]]; then
+  echo "Platform minimum: darwin requires Go 1.16+ (resolved ${GO_VERSION}), bumping" >&2
+  GO_VERSION="1.16"
+fi
+
+# darwin + Go 1.17-1.20: Xcode 15 linker is incompatible (Go issue #61229)
+# macos-13 is retired; macos-14 ships Xcode 15 which silently crashes Go 1.17-1.20 CGO linking.
+# Go 1.16 works (simpler linker integration), Go 1.21+ has the fix. Only bump the broken range.
+if [[ "${GO_OS:-}" == "darwin" && "${GO_MINOR}" -ge 17 && "${GO_MINOR}" -lt 21 ]]; then
+  echo "Platform minimum: darwin Go ${GO_VERSION} incompatible with Xcode 15 linker, bumping to 1.21" >&2
   GO_VERSION="1.21"
 fi
 

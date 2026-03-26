@@ -1,18 +1,18 @@
-name: "Build Era 7 (v16)"
+name: "Build Era 8 (v17+)"
 
 on:
   workflow_call:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v16.0.0)"
+        description: "Teleport version tag (e.g. v17.0.0)"
         required: true
         type: string
   workflow_dispatch:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v16.0.0)"
+        description: "Teleport version tag (e.g. v17.0.0)"
         required: true
-        default: "v16.4.12"
+        default: "v18.7.2"
 
 permissions:
   contents: write    # needed for release creation

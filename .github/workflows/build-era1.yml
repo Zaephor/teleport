@@ -1,18 +1,18 @@
-name: "Build Era 1 (v2-v4)"
+name: "Build Era 1 (v2.0-v2.2)"
 
 on:
   workflow_call:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v3.2.1)"
+        description: "Teleport version tag (e.g. v2.0.1)"
         required: true
         type: string
   workflow_dispatch:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v3.2.1)"
+        description: "Teleport version tag (e.g. v2.0.1)"
         required: true
-        default: "v4.4.12"
+        default: "v2.2.7"
 
 permissions:
   contents: write    # needed for release creation
@@ -107,16 +107,6 @@ jobs:
             cc: ""
             runner: ubuntu-latest
             build_variant: "lite"
-          - name: linux-arm64-lite
-            go_os: linux
-            go_arch: arm64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ubuntu:20.04
-            pam: "true"
-            cc: aarch64-linux-gnu-gcc
-            runner: ubuntu-latest
-            build_variant: "lite"
           - name: linux-amd64-upstream
             go_os: linux
             go_arch: amd64
@@ -125,16 +115,6 @@ jobs:
             build_container: ubuntu:14.04
             pam: "true"
             cc: ""
-            runner: ubuntu-latest
-            build_variant: "upstream"
-          - name: linux-arm64-upstream
-            go_os: linux
-            go_arch: arm64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ubuntu:20.04
-            pam: "true"
-            cc: aarch64-linux-gnu-gcc
             runner: ubuntu-latest
             build_variant: "upstream"
 
@@ -186,14 +166,6 @@ jobs:
           path: .cache/go-build
           key: gobuild-${{ inputs.tp_version }}-${{ matrix.name }}
           restore-keys: gobuild-${{ inputs.tp_version }}-
-
-      - name: Setup Go (macOS)
-        if: runner.os == 'macOS'
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ steps.resolve_go.outputs.go_version }}
-          cache: true
-          cache-dependency-path: go/src/${{ env.UPSTREAM }}/go.sum
 
       - name: Download web assets
         if: ${{ matrix.build_variant == 'upstream' }}
@@ -274,26 +246,6 @@ jobs:
           entrypoint: /bin/bash
           args: >-
             -c "bash ci/scripts/prep.sh && bash ci/scripts/install-go.sh ${GO_VERSION} ${PWD}/gvm && bash ci/scripts/build.sh"
-
-      - name: Build (macOS native)
-        if: runner.os == 'macOS'
-        env:
-          CC: ${{ matrix.cc }}
-          GO_OS: ${{ matrix.go_os }}
-          GO_ARCH: ${{ matrix.go_arch }}
-          GO_ARM: ${{ matrix.go_arm }}
-          GO_EXPERIMENT: ${{ matrix.go_experiment }}
-          GO_VERSION: ${{ steps.resolve_go.outputs.go_version }}
-          REF_NAME: ${{ matrix.name }}
-          REF_PWD: ${{ github.workspace }}
-          REF_VER: ${{ inputs.tp_version }}
-          UPSTREAM: ${{ env.UPSTREAM }}
-          PAM: ${{ matrix.pam }}
-          GOPATH: ${{ github.workspace }}/go
-          GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
-          GOCACHE: ${{ github.workspace }}/.cache/go-build
-          BUILD_VARIANT: ${{ matrix.build_variant }}
-        run: bash ci/scripts/build.sh
 
       - name: Smoke test
         env:
@@ -335,9 +287,6 @@ jobs:
   build-extra:
     needs: [build-webassets]
     runs-on: ${{ matrix.runner }}
-    defaults:
-      run:
-        shell: bash
     timeout-minutes: 180
     strategy:
       fail-fast: false
@@ -372,56 +321,6 @@ jobs:
             pam: "true"
             cc: arm-linux-gnueabi-gcc
             runner: ubuntu-latest
-            build_variant: "lite"
-          - name: darwin-amd64-lite
-            go_os: darwin
-            go_arch: amd64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ""
-            pam: "false"
-            cc: ""
-            runner: macos-14
-            build_variant: "lite"
-          - name: darwin-arm64-lite
-            go_os: darwin
-            go_arch: arm64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ""
-            pam: "false"
-            cc: ""
-            runner: macos-14
-            build_variant: "lite"
-          - name: darwin-amd64-upstream
-            go_os: darwin
-            go_arch: amd64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ""
-            pam: "false"
-            cc: ""
-            runner: macos-14
-            build_variant: "upstream"
-          - name: darwin-arm64-upstream
-            go_os: darwin
-            go_arch: arm64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ""
-            pam: "false"
-            cc: ""
-            runner: macos-14
-            build_variant: "upstream"
-          - name: windows-amd64-lite
-            go_os: windows
-            go_arch: amd64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ""
-            pam: "false"
-            cc: ""
-            runner: windows-latest
             build_variant: "lite"
 
     steps:
@@ -472,22 +371,6 @@ jobs:
           path: .cache/go-build
           key: gobuild-${{ inputs.tp_version }}-${{ matrix.name }}
           restore-keys: gobuild-${{ inputs.tp_version }}-
-
-      - name: Setup Go (native)
-        if: runner.os != 'Linux'
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ steps.resolve_go.outputs.go_version }}
-          cache: true
-          cache-dependency-path: go/src/${{ env.UPSTREAM }}/go.sum
-
-      - name: Download web assets
-        if: ${{ matrix.build_variant == 'upstream' }}
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: webassets-${{ inputs.tp_version }}
-          path: go/src/${{ env.UPSTREAM }}/webassets
 
       - name: Build (ubuntu:14.04)
         if: matrix.build_container == 'ubuntu:14.04'
@@ -560,26 +443,6 @@ jobs:
           entrypoint: /bin/bash
           args: >-
             -c "bash ci/scripts/prep.sh && bash ci/scripts/install-go.sh ${GO_VERSION} ${PWD}/gvm && bash ci/scripts/build.sh"
-
-      - name: Build (native)
-        if: runner.os != 'Linux'
-        env:
-          CC: ${{ matrix.cc }}
-          GO_OS: ${{ matrix.go_os }}
-          GO_ARCH: ${{ matrix.go_arch }}
-          GO_ARM: ${{ matrix.go_arm }}
-          GO_EXPERIMENT: ${{ matrix.go_experiment }}
-          GO_VERSION: ${{ steps.resolve_go.outputs.go_version }}
-          REF_NAME: ${{ matrix.name }}
-          REF_PWD: ${{ github.workspace }}
-          REF_VER: ${{ inputs.tp_version }}
-          UPSTREAM: ${{ env.UPSTREAM }}
-          PAM: ${{ matrix.pam }}
-          GOPATH: ${{ github.workspace }}/go
-          GOMODCACHE: ${{ github.workspace }}/go/pkg/mod
-          GOCACHE: ${{ github.workspace }}/.cache/go-build
-          BUILD_VARIANT: ${{ matrix.build_variant }}
-        run: bash ci/scripts/build.sh
 
       - name: Smoke test
         env:

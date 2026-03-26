@@ -1,18 +1,18 @@
-name: "Build Era 3 (v8-v9)"
+name: "Build Era 3 (v5-v7)"
 
 on:
   workflow_call:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v9.3.26)"
+        description: "Teleport version tag (e.g. v5.2.5)"
         required: true
         type: string
   workflow_dispatch:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v9.3.26)"
+        description: "Teleport version tag (e.g. v5.2.5)"
         required: true
-        default: "v9.3.28"
+        default: "v7.3.2"
 
 permissions:
   contents: write    # needed for release creation
@@ -72,10 +72,14 @@ jobs:
       - name: Save webassets to cache path
         if: steps.webassets-cache.outputs.cache-hit != 'true'
         run: |
-          sudo chown -R $(id -u):$(id -g) go/src/${{ env.UPSTREAM }}/webassets/ || true
-          mkdir -p cached-webassets
-          cp -r go/src/${{ env.UPSTREAM }}/webassets/* cached-webassets/
-          echo "Cached webassets: $(du -sh cached-webassets/ | cut -f1)"
+          if [[ -d "go/src/${{ env.UPSTREAM }}/webassets" ]]; then
+            sudo chown -R $(id -u):$(id -g) go/src/${{ env.UPSTREAM }}/webassets/ || true
+            mkdir -p cached-webassets
+            cp -r go/src/${{ env.UPSTREAM }}/webassets/* cached-webassets/
+            echo "Cached webassets: $(du -sh cached-webassets/ | cut -f1)"
+          else
+            echo "No webassets directory — skipping cache save"
+          fi
 
       - name: Upload web assets
         uses: actions/upload-artifact@v4
@@ -83,69 +87,10 @@ jobs:
           name: webassets-${{ inputs.tp_version }}
           path: go/src/${{ env.UPSTREAM }}/webassets/
           retention-days: 1
-
-  build-rdpclient:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - go_arch: amd64
-          - go_arch: arm64
-    steps:
-      - name: Cache rdp-client
-        id: rdpclient-cache
-        uses: actions/cache@v4
-        with:
-          path: rdpclient
-          key: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
-
-      - name: Checkout CI repo
-        if: steps.rdpclient-cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v4
-        with:
-          ref: ci
-          path: ci
-          fetch-depth: 1
-          token: ${{ secrets.GH_PAT }}
-
-      - name: Checkout teleport source
-        if: steps.rdpclient-cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tp_version }}
-          path: go/src/${{ env.UPSTREAM }}
-          fetch-depth: 1
-          token: ${{ secrets.GH_PAT }}
-
-      - name: Build rdp-client
-        if: steps.rdpclient-cache.outputs.cache-hit != 'true'
-        uses: docker://ubuntu:22.04
-        env:
-          REF_PWD: ${{ github.workspace }}
-          UPSTREAM: ${{ env.UPSTREAM }}
-          GO_ARCH: ${{ matrix.go_arch }}
-        with:
-          entrypoint: /bin/bash
-          args: >-
-            -c "bash ci/scripts/build-rdpclient.sh"
-
-      - name: Fix rdp-client permissions
-        if: steps.rdpclient-cache.outputs.cache-hit != 'true'
-        run: sudo chown -R $(id -u):$(id -g) rdpclient/ 2>/dev/null || true
-
-      - name: Upload rdp-client
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
-          path: rdpclient/
-          retention-days: 1
           if-no-files-found: ignore
 
   build-core:
-    needs: [build-webassets, build-rdpclient]
+    needs: [build-webassets]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     strategy:
@@ -242,14 +187,6 @@ jobs:
           key: gobuild-${{ inputs.tp_version }}-${{ matrix.name }}
           restore-keys: gobuild-${{ inputs.tp_version }}-
 
-      - name: Download rdp-client
-        if: matrix.build_variant == 'upstream' && (matrix.go_arch == 'amd64' || matrix.go_arch == 'arm64')
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
-          path: rdpclient
-
       - name: Setup Go (macOS)
         if: runner.os == 'macOS'
         uses: actions/setup-go@v5
@@ -260,6 +197,7 @@ jobs:
 
       - name: Download web assets
         if: ${{ matrix.build_variant == 'upstream' }}
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: webassets-${{ inputs.tp_version }}
@@ -545,6 +483,7 @@ jobs:
 
       - name: Download web assets
         if: ${{ matrix.build_variant == 'upstream' }}
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: webassets-${{ inputs.tp_version }}

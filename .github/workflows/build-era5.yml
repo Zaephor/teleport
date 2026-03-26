@@ -1,18 +1,18 @@
-name: "Build Era 5 (v12-v15)"
+name: "Build Era 5 (v10-v11)"
 
 on:
   workflow_call:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v13.0.0)"
+        description: "Teleport version tag (e.g. v10.0.0)"
         required: true
         type: string
   workflow_dispatch:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v13.0.0)"
+        description: "Teleport version tag (e.g. v10.0.0)"
         required: true
-        default: "v14.3.20"
+        default: "v11.3.7"
 
 permissions:
   contents: write    # needed for release creation
@@ -418,7 +418,7 @@ jobs:
             go_os: linux
             go_arch: arm
             go_arm: "6"
-            go_experiment: "nounified"
+            go_experiment: nounified
             build_container: ubuntu:22.04
             pam: "true"
             cc: arm-linux-gnueabihf-gcc

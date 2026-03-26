@@ -110,3 +110,11 @@ jobs:
     with:
       tp_version: ${{ needs.detect.outputs.build_ver }}
     secrets: inherit
+
+  build-era8:
+    needs: detect
+    if: needs.detect.outputs.era == '8'
+    uses: ./.github/workflows/build-era8.yml
+    with:
+      tp_version: ${{ needs.detect.outputs.build_ver }}
+    secrets: inherit
