@@ -78,6 +78,14 @@ if [[ "${GO_MINOR}" -ge 18 ]]; then
   GO_BUILD_FLAGS+=(-buildvcs=false)
 fi
 
+# armhf (GOARM=6) with old Go: the cross-compiler defaults to soft-float
+# but Go emits hard-float code, causing VFP register mismatch at link time.
+# Go 1.10+ handles this automatically; older Go needs explicit flags.
+if [[ "${GO_ARCH}" == "arm" && "${GO_ARM:-}" == "6" && "${GO_MINOR}" -lt 10 ]]; then
+  export CGO_CFLAGS="${CGO_CFLAGS:+${CGO_CFLAGS} }-marm -mfloat-abi=hard"
+  export CGO_LDFLAGS="${CGO_LDFLAGS:+${CGO_LDFLAGS} }-marm -mfloat-abi=hard"
+fi
+
 # --- Build tags (match upstream Makefile per-binary tag sets) ---
 # kustomize_disable_go_plugin_support: harmless on old versions (no matching files)
 BASE_TAGS="kustomize_disable_go_plugin_support"
