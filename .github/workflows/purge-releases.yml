@@ -34,8 +34,7 @@ jobs:
 
           for tag in ${RELEASES}; do
             echo "Deleting release ${tag}..."
-            gh release delete "${tag}" --yes --cleanup-tag 2>/dev/null || \
-              gh release delete "${tag}" --yes 2>/dev/null || \
+            gh release delete "${tag}" --yes 2>/dev/null || \
               echo "Failed to delete ${tag}"
             sleep 0.5
           done
