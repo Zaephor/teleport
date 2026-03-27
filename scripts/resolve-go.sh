@@ -24,16 +24,25 @@ if [[ "${VER}" == *.* ]]; then
 else
   MINOR="0"
 fi
+PATCH=""
+if [[ "${VER}" == *.*.* ]]; then
+  PATCH="${VER##*.}"
+fi
 
 OVERRIDE_FILE="${CI_DIR}/golang.override"
 GO_VERSION=""
 
-# 1) Try major.minor match in golang.override
-if [[ -f "${OVERRIDE_FILE}" ]]; then
+# 1) Try major.minor.patch match in golang.override (e.g. v3.1.16)
+if [[ -n "${PATCH}" && -f "${OVERRIDE_FILE}" ]]; then
+  GO_VERSION=$(grep "^v${MAJOR}.${MINOR}.${PATCH}," "${OVERRIDE_FILE}" | cut -d',' -f2 | head -1 || true)
+fi
+
+# 2) Try major.minor match in golang.override (e.g. v3.1)
+if [[ -z "${GO_VERSION}" && -f "${OVERRIDE_FILE}" ]]; then
   GO_VERSION=$(grep "^v${MAJOR}.${MINOR}," "${OVERRIDE_FILE}" | cut -d',' -f2 | head -1 || true)
 fi
 
-# 2) Try major-only match in golang.override
+# 3) Try major-only match in golang.override (e.g. v3)
 if [[ -z "${GO_VERSION}" && -f "${OVERRIDE_FILE}" ]]; then
   GO_VERSION=$(grep "^v${MAJOR}," "${OVERRIDE_FILE}" | cut -d',' -f2 | head -1 || true)
 fi
