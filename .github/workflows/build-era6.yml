@@ -27,11 +27,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Pre-pull build container via mirror
-        run: |
-          docker pull mirror.gcr.io/library/ubuntu:22.04 2>/dev/null && \
-            docker tag mirror.gcr.io/library/ubuntu:22.04 ubuntu:22.04 || true
-
       - name: Cache webassets
         id: webassets-cache
         uses: actions/cache@v4
@@ -99,11 +94,6 @@ jobs:
           - go_arch: amd64
           - go_arch: arm64
     steps:
-      - name: Pre-pull build container via mirror
-        run: |
-          docker pull mirror.gcr.io/library/ubuntu:22.04 2>/dev/null && \
-            docker tag mirror.gcr.io/library/ubuntu:22.04 ubuntu:22.04 || true
-
       - name: Cache rdp-client
         id: rdpclient-cache
         uses: actions/cache@v4
@@ -204,12 +194,6 @@ jobs:
             build_variant: "upstream"
 
     steps:
-      - name: Pre-pull build container via mirror
-        if: matrix.build_container != ''
-        run: |
-          docker pull "mirror.gcr.io/library/${{ matrix.build_container }}" 2>/dev/null && \
-            docker tag "mirror.gcr.io/library/${{ matrix.build_container }}" "${{ matrix.build_container }}" || true
-
       - name: Checkout CI repo
         uses: actions/checkout@v4
         with:
@@ -505,12 +489,6 @@ jobs:
             build_variant: "lite"
 
     steps:
-      - name: Pre-pull build container via mirror
-        if: matrix.build_container != ''
-        run: |
-          docker pull "mirror.gcr.io/library/${{ matrix.build_container }}" 2>/dev/null && \
-            docker tag "mirror.gcr.io/library/${{ matrix.build_container }}" "${{ matrix.build_container }}" || true
-
       - name: Checkout CI repo
         uses: actions/checkout@v4
         with:
@@ -712,4 +690,3 @@ jobs:
     with:
       tp_version: ${{ inputs.tp_version }}
     secrets: inherit
-

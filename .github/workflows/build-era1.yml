@@ -52,12 +52,6 @@ jobs:
             build_variant: "upstream"
 
     steps:
-      - name: Pre-pull build container via mirror
-        if: matrix.build_container != ''
-        run: |
-          docker pull "mirror.gcr.io/library/${{ matrix.build_container }}" 2>/dev/null && \
-            docker tag "mirror.gcr.io/library/${{ matrix.build_container }}" "${{ matrix.build_container }}" || true
-
       - name: Checkout CI repo
         uses: actions/checkout@v4
         with:
@@ -256,12 +250,6 @@ jobs:
             build_variant: "lite"
 
     steps:
-      - name: Pre-pull build container via mirror
-        if: matrix.build_container != ''
-        run: |
-          docker pull "mirror.gcr.io/library/${{ matrix.build_container }}" 2>/dev/null && \
-            docker tag "mirror.gcr.io/library/${{ matrix.build_container }}" "${{ matrix.build_container }}" || true
-
       - name: Checkout CI repo
         uses: actions/checkout@v4
         with:
@@ -428,4 +416,3 @@ jobs:
     with:
       tp_version: ${{ inputs.tp_version }}
     secrets: inherit
-
