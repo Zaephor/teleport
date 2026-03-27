@@ -318,13 +318,34 @@ jobs:
           name: fdpass-${{ inputs.tp_version }}-${{ matrix.go_arch }}
           path: fdpass
 
+      - name: Cache Go toolchain
+        if: runner.os != 'Linux'
+        id: go-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/go-toolchain
+          key: go-${{ runner.os }}-${{ runner.arch }}-${{ steps.resolve_go.outputs.go_version }}
+
+      - name: Restore cached Go toolchain
+        if: runner.os != 'Linux' && steps.go-cache.outputs.cache-hit == 'true'
+        run: |
+          export GOROOT="$HOME/go-toolchain/go"
+          echo "GOROOT=${GOROOT}" >> "$GITHUB_ENV"
+          echo "${GOROOT}/bin" >> "$GITHUB_PATH"
+
       - name: Setup Go (macOS)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && steps.go-cache.outputs.cache-hit != 'true'
         uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.resolve_go.outputs.go_version }}
           cache: true
           cache-dependency-path: go/src/${{ env.UPSTREAM }}/go.sum
+
+      - name: Save Go toolchain to cache
+        if: runner.os != 'Linux' && steps.go-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/go-toolchain
+          cp -r "$(go env GOROOT)" ~/go-toolchain/go
 
       - name: Download web assets
         if: ${{ matrix.build_variant == 'upstream' }}
@@ -605,13 +626,34 @@ jobs:
           key: gobuild-${{ inputs.tp_version }}-${{ matrix.name }}
           restore-keys: gobuild-${{ inputs.tp_version }}-
 
-      - name: Setup Go (native)
+      - name: Cache Go toolchain
         if: runner.os != 'Linux'
+        id: go-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/go-toolchain
+          key: go-${{ runner.os }}-${{ runner.arch }}-${{ steps.resolve_go.outputs.go_version }}
+
+      - name: Restore cached Go toolchain
+        if: runner.os != 'Linux' && steps.go-cache.outputs.cache-hit == 'true'
+        run: |
+          export GOROOT="$HOME/go-toolchain/go"
+          echo "GOROOT=${GOROOT}" >> "$GITHUB_ENV"
+          echo "${GOROOT}/bin" >> "$GITHUB_PATH"
+
+      - name: Setup Go (native)
+        if: runner.os != 'Linux' && steps.go-cache.outputs.cache-hit != 'true'
         uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.resolve_go.outputs.go_version }}
           cache: true
           cache-dependency-path: go/src/${{ env.UPSTREAM }}/go.sum
+
+      - name: Save Go toolchain to cache
+        if: runner.os != 'Linux' && steps.go-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/go-toolchain
+          cp -r "$(go env GOROOT)" ~/go-toolchain/go
 
       - name: Download web assets
         if: ${{ matrix.build_variant == 'upstream' }}
@@ -756,5 +798,6 @@ jobs:
     with:
       tp_version: ${{ inputs.tp_version }}
     secrets: inherit
+
 
 
