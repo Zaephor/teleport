@@ -1,18 +1,18 @@
-name: "Build Era 6 (v10-v11)"
+name: "Build Era 6 (v8-v9)"
 
 on:
   workflow_call:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v10.0.0)"
+        description: "Teleport version tag (e.g. v9.3.26)"
         required: true
         type: string
   workflow_dispatch:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v10.0.0)"
+        description: "Teleport version tag (e.g. v9.3.26)"
         required: true
-        default: "v11.3.7"
+        default: "v9.3.28"
 
 permissions:
   contents: write    # needed for release creation
@@ -246,6 +246,7 @@ jobs:
 
       - name: Download rdp-client
         if: matrix.build_variant == 'upstream' && (matrix.go_arch == 'amd64' || matrix.go_arch == 'arm64')
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
@@ -420,7 +421,7 @@ jobs:
             go_os: linux
             go_arch: arm
             go_arm: "6"
-            go_experiment: nounified
+            go_experiment: ""
             build_container: ubuntu:22.04
             pam: "true"
             cc: arm-linux-gnueabihf-gcc

@@ -1,4 +1,4 @@
-name: "Build Era 3 (v3-v4)"
+name: "Build Era 3 (v3-v4.0)"
 
 on:
   workflow_call:
@@ -415,17 +415,6 @@ jobs:
             cc: ""
             runner: macos-14
             build_variant: "upstream"
-          - name: windows-amd64-lite
-            go_os: windows
-            go_arch: amd64
-            go_arm: ""
-            go_experiment: ""
-            build_container: ""
-            pam: "false"
-            cc: ""
-            runner: windows-latest
-            build_variant: "lite"
-
     steps:
       - name: Checkout CI repo
         uses: actions/checkout@v4
