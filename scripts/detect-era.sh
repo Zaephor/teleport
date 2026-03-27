@@ -1,5 +1,5 @@
 #!/bin/bash
-# detect-era.sh — Given a teleport version tag, output the era (1-10)
+# detect-era.sh — Given a teleport version tag, output the era (1-11)
 # Usage: detect-era.sh v3.2.1 → outputs "3"
 set -euo pipefail
 
@@ -25,22 +25,25 @@ if [[ "${MAJOR}" -eq 2 && "${MINOR}" -lt 3 ]]; then
 # Era 2: v2.3-v2.7 (linux + darwin + arm64, no Windows — pwd.h/logrus vendor issues)
 elif [[ "${MAJOR}" -eq 2 ]]; then
   echo "2"
-# Era 3: v3-v4.0 (full minus Windows — session_windows.go signature mismatch)
+# Era 3: v3-v4.0 (no Windows, no webassets — session_windows.go mismatch, pre-webassets)
 elif [[ "${MAJOR}" -eq 3 || ( "${MAJOR}" -eq 4 && "${MINOR}" -eq 0 ) ]]; then
   echo "3"
-# Era 4: v4.1-v4 (full platform matrix, GOPATH builds)
-elif [[ "${MAJOR}" -le 4 ]]; then
+# Era 4: v4.1-v4.2 (Windows, no webassets — webassets submodule added in v4.3)
+elif [[ "${MAJOR}" -eq 4 && "${MINOR}" -le 2 ]]; then
   echo "4"
-elif [[ "${MAJOR}" -le 7 ]]; then
+# Era 5: v4.3-v4 (Windows, webassets)
+elif [[ "${MAJOR}" -le 4 ]]; then
   echo "5"
-elif [[ "${MAJOR}" -le 9 ]]; then
+elif [[ "${MAJOR}" -le 7 ]]; then
   echo "6"
-elif [[ "${MAJOR}" -le 11 ]]; then
+elif [[ "${MAJOR}" -le 9 ]]; then
   echo "7"
-elif [[ "${MAJOR}" -le 15 ]]; then
+elif [[ "${MAJOR}" -le 11 ]]; then
   echo "8"
-elif [[ "${MAJOR}" -eq 16 ]]; then
+elif [[ "${MAJOR}" -le 15 ]]; then
   echo "9"
-else
+elif [[ "${MAJOR}" -eq 16 ]]; then
   echo "10"
+else
+  echo "11"
 fi

@@ -134,3 +134,11 @@ jobs:
     with:
       tp_version: ${{ needs.detect.outputs.build_ver }}
     secrets: inherit
+
+  build-era11:
+    needs: detect
+    if: needs.detect.outputs.era == '11'
+    uses: ./.github/workflows/build-era11.yml
+    with:
+      tp_version: ${{ needs.detect.outputs.build_ver }}
+    secrets: inherit

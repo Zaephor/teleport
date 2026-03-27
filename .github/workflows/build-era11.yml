@@ -1,18 +1,18 @@
-name: "Build Era 3 (v3-v4.0)"
+name: "Build Era 11 (v17+)"
 
 on:
   workflow_call:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v4.0.0)"
+        description: "Teleport version tag (e.g. v17.0.0)"
         required: true
         type: string
   workflow_dispatch:
     inputs:
       tp_version:
-        description: "Teleport version tag (e.g. v4.0.0)"
+        description: "Teleport version tag (e.g. v17.0.0)"
         required: true
-        default: "v4.0.8"
+        default: "v18.7.2"
 
 permissions:
   contents: write    # needed for release creation
@@ -23,7 +23,264 @@ env:
   UPSTREAM: github.com/gravitational/teleport
 
 jobs:
+  build-webassets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Configure Docker Hub mirror
+        if: runner.os == 'Linux'
+        run: |
+          sudo mkdir -p /etc/docker
+          echo '{"registry-mirrors": ["https://mirror.gcr.io"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
+      - name: Cache build container
+        if: runner.os == 'Linux'
+        id: container-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/container-image.tar
+          key: container-ubuntu-22.04
+
+      - name: Load or pull build container
+        if: runner.os == 'Linux'
+        run: |
+          if [[ -f /tmp/container-image.tar ]]; then
+            docker load -i /tmp/container-image.tar
+          else
+            docker pull "ubuntu:22.04"
+            docker save "ubuntu:22.04" -o /tmp/container-image.tar
+          fi
+
+      - name: Cache webassets
+        id: webassets-cache
+        uses: actions/cache@v4
+        with:
+          path: cached-webassets
+          key: webassets-${{ inputs.tp_version }}
+
+      - name: Restore cached webassets
+        if: steps.webassets-cache.outputs.cache-hit == 'true'
+        run: |
+          mkdir -p go/src/${{ env.UPSTREAM }}/webassets
+          cp -r cached-webassets/* go/src/${{ env.UPSTREAM }}/webassets/
+
+      - name: Checkout CI repo
+        if: steps.webassets-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          path: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout teleport source
+        if: steps.webassets-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tp_version }}
+          path: go/src/${{ env.UPSTREAM }}
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Build web assets
+        if: steps.webassets-cache.outputs.cache-hit != 'true'
+        uses: docker://ubuntu:22.04
+        env:
+          REF_PWD: ${{ github.workspace }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+        with:
+          entrypoint: /bin/bash
+          args: >-
+            -c "bash ci/scripts/build-webassets.sh"
+
+      - name: Save webassets to cache path
+        if: steps.webassets-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo chown -R $(id -u):$(id -g) go/src/${{ env.UPSTREAM }}/webassets/ || true
+          mkdir -p cached-webassets
+          cp -r go/src/${{ env.UPSTREAM }}/webassets/* cached-webassets/
+          echo "Cached webassets: $(du -sh cached-webassets/ | cut -f1)"
+
+      - name: Upload web assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: webassets-${{ inputs.tp_version }}
+          path: go/src/${{ env.UPSTREAM }}/webassets/
+          retention-days: 1
+
+  build-rdpclient:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - go_arch: amd64
+          - go_arch: arm64
+    steps:
+      - name: Configure Docker Hub mirror
+        if: runner.os == 'Linux'
+        run: |
+          sudo mkdir -p /etc/docker
+          echo '{"registry-mirrors": ["https://mirror.gcr.io"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
+      - name: Cache build container
+        if: runner.os == 'Linux'
+        id: container-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/container-image.tar
+          key: container-ubuntu-22.04
+
+      - name: Load or pull build container
+        if: runner.os == 'Linux'
+        run: |
+          if [[ -f /tmp/container-image.tar ]]; then
+            docker load -i /tmp/container-image.tar
+          else
+            docker pull "ubuntu:22.04"
+            docker save "ubuntu:22.04" -o /tmp/container-image.tar
+          fi
+
+      - name: Cache rdp-client
+        id: rdpclient-cache
+        uses: actions/cache@v4
+        with:
+          path: rdpclient
+          key: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
+
+      - name: Checkout CI repo
+        if: steps.rdpclient-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          path: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout teleport source
+        if: steps.rdpclient-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tp_version }}
+          path: go/src/${{ env.UPSTREAM }}
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Build rdp-client
+        if: steps.rdpclient-cache.outputs.cache-hit != 'true'
+        uses: docker://ubuntu:22.04
+        env:
+          REF_PWD: ${{ github.workspace }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+          GO_ARCH: ${{ matrix.go_arch }}
+        with:
+          entrypoint: /bin/bash
+          args: >-
+            -c "bash ci/scripts/build-rdpclient.sh"
+
+      - name: Fix rdp-client permissions
+        if: steps.rdpclient-cache.outputs.cache-hit != 'true'
+        run: sudo chown -R $(id -u):$(id -g) rdpclient/ 2>/dev/null || true
+
+      - name: Upload rdp-client
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
+          path: rdpclient/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  build-fdpass:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - go_arch: amd64
+          - go_arch: arm64
+    steps:
+      - name: Configure Docker Hub mirror
+        if: runner.os == 'Linux'
+        run: |
+          sudo mkdir -p /etc/docker
+          echo '{"registry-mirrors": ["https://mirror.gcr.io"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
+      - name: Cache build container
+        if: runner.os == 'Linux'
+        id: container-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/container-image.tar
+          key: container-ubuntu-22.04
+
+      - name: Load or pull build container
+        if: runner.os == 'Linux'
+        run: |
+          if [[ -f /tmp/container-image.tar ]]; then
+            docker load -i /tmp/container-image.tar
+          else
+            docker pull "ubuntu:22.04"
+            docker save "ubuntu:22.04" -o /tmp/container-image.tar
+          fi
+
+      - name: Cache fdpass-teleport
+        id: fdpass-cache
+        uses: actions/cache@v4
+        with:
+          path: fdpass
+          key: fdpass-${{ inputs.tp_version }}-${{ matrix.go_arch }}
+
+      - name: Checkout CI repo
+        if: steps.fdpass-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          path: ci
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout teleport source
+        if: steps.fdpass-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tp_version }}
+          path: go/src/${{ env.UPSTREAM }}
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Build fdpass-teleport
+        if: steps.fdpass-cache.outputs.cache-hit != 'true'
+        uses: docker://ubuntu:22.04
+        env:
+          REF_PWD: ${{ github.workspace }}
+          UPSTREAM: ${{ env.UPSTREAM }}
+          GO_ARCH: ${{ matrix.go_arch }}
+        with:
+          entrypoint: /bin/bash
+          args: >-
+            -c "bash ci/scripts/build-fdpass.sh"
+
+      - name: Fix fdpass-teleport permissions
+        if: steps.fdpass-cache.outputs.cache-hit != 'true'
+        run: sudo chown -R $(id -u):$(id -g) fdpass/ 2>/dev/null || true
+
+      - name: Upload fdpass-teleport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fdpass-${{ inputs.tp_version }}-${{ matrix.go_arch }}
+          path: fdpass/
+          retention-days: 1
+          if-no-files-found: ignore
+
   build-core:
+    needs: [build-webassets, build-rdpclient, build-fdpass]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     strategy:
@@ -147,6 +404,20 @@ jobs:
           key: gobuild-${{ inputs.tp_version }}-${{ matrix.name }}
           restore-keys: gobuild-${{ inputs.tp_version }}-
 
+      - name: Download rdp-client
+        if: matrix.build_variant == 'upstream' && (matrix.go_arch == 'amd64' || matrix.go_arch == 'arm64')
+        uses: actions/download-artifact@v4
+        with:
+          name: rdpclient-${{ inputs.tp_version }}-${{ matrix.go_arch }}
+          path: rdpclient
+
+      - name: Download fdpass-teleport
+        if: matrix.go_os == 'linux' && (matrix.go_arch == 'amd64' || matrix.go_arch == 'arm64')
+        uses: actions/download-artifact@v4
+        with:
+          name: fdpass-${{ inputs.tp_version }}-${{ matrix.go_arch }}
+          path: fdpass
+
       - name: Setup Go (macOS)
         if: runner.os == 'macOS'
         uses: actions/setup-go@v5
@@ -154,6 +425,13 @@ jobs:
           go-version: ${{ steps.resolve_go.outputs.go_version }}
           cache: true
           cache-dependency-path: go/src/${{ env.UPSTREAM }}/go.sum
+
+      - name: Download web assets
+        if: ${{ matrix.build_variant == 'upstream' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: webassets-${{ inputs.tp_version }}
+          path: go/src/${{ env.UPSTREAM }}/webassets
 
       - name: Build (ubuntu:14.04)
         if: matrix.build_container == 'ubuntu:14.04'
@@ -285,6 +563,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
 
   build-extra:
+    needs: [build-webassets]
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
@@ -308,7 +587,7 @@ jobs:
             go_os: linux
             go_arch: arm
             go_arm: "6"
-            go_experiment: ""
+            go_experiment: nounified
             build_container: ubuntu:22.04
             pam: "true"
             cc: arm-linux-gnueabihf-gcc
@@ -344,6 +623,16 @@ jobs:
             cc: ""
             runner: macos-14
             build_variant: "lite"
+          - name: windows-amd64-lite
+            go_os: windows
+            go_arch: amd64
+            go_arm: ""
+            go_experiment: ""
+            build_container: ""
+            pam: "false"
+            cc: ""
+            runner: windows-latest
+            build_variant: "lite"
           - name: darwin-amd64-upstream
             go_os: darwin
             go_arch: amd64
@@ -364,6 +653,7 @@ jobs:
             cc: ""
             runner: macos-14
             build_variant: "upstream"
+
     steps:
       - name: Configure Docker Hub mirror
         if: runner.os == 'Linux'
@@ -447,6 +737,13 @@ jobs:
           go-version: ${{ steps.resolve_go.outputs.go_version }}
           cache: true
           cache-dependency-path: go/src/${{ env.UPSTREAM }}/go.sum
+
+      - name: Download web assets
+        if: ${{ matrix.build_variant == 'upstream' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: webassets-${{ inputs.tp_version }}
+          path: go/src/${{ env.UPSTREAM }}/webassets
 
       - name: Build (ubuntu:14.04)
         if: matrix.build_container == 'ubuntu:14.04'
