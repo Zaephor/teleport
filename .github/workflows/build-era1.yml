@@ -52,31 +52,6 @@ jobs:
             build_variant: "upstream"
 
     steps:
-      - name: Configure Docker Hub mirror
-        if: runner.os == 'Linux'
-        run: |
-          sudo mkdir -p /etc/docker
-          echo '{"registry-mirrors": ["https://mirror.gcr.io"]}' | sudo tee /etc/docker/daemon.json
-          sudo systemctl restart docker
-
-      - name: Cache build container
-        if: runner.os == 'Linux' && matrix.build_container != ''
-        id: container-cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/container-image.tar
-          key: container-${{ matrix.build_container }}
-
-      - name: Load or pull build container
-        if: runner.os == 'Linux' && matrix.build_container != ''
-        run: |
-          if [[ -f /tmp/container-image.tar ]]; then
-            docker load -i /tmp/container-image.tar
-          else
-            docker pull "${{ matrix.build_container }}"
-            docker save "${{ matrix.build_container }}" -o /tmp/container-image.tar
-          fi
-
       - name: Checkout CI repo
         uses: actions/checkout@v4
         with:
@@ -275,31 +250,6 @@ jobs:
             build_variant: "lite"
 
     steps:
-      - name: Configure Docker Hub mirror
-        if: runner.os == 'Linux'
-        run: |
-          sudo mkdir -p /etc/docker
-          echo '{"registry-mirrors": ["https://mirror.gcr.io"]}' | sudo tee /etc/docker/daemon.json
-          sudo systemctl restart docker
-
-      - name: Cache build container
-        if: runner.os == 'Linux' && matrix.build_container != ''
-        id: container-cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/container-image.tar
-          key: container-${{ matrix.build_container }}
-
-      - name: Load or pull build container
-        if: runner.os == 'Linux' && matrix.build_container != ''
-        run: |
-          if [[ -f /tmp/container-image.tar ]]; then
-            docker load -i /tmp/container-image.tar
-          else
-            docker pull "${{ matrix.build_container }}"
-            docker save "${{ matrix.build_container }}" -o /tmp/container-image.tar
-          fi
-
       - name: Checkout CI repo
         uses: actions/checkout@v4
         with:
@@ -466,4 +416,5 @@ jobs:
     with:
       tp_version: ${{ inputs.tp_version }}
     secrets: inherit
+
 
