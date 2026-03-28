@@ -212,18 +212,27 @@ if [[ -n "${GITREF}" ]]; then
 fi
 
 # Resolve webassets_embed tag now that SOURCE_DIR is available
-# Three eras: v10+ (root webassets_embed.go), v8-v9 (lib/web/static_embed.go), v2-v7 (zip-append)
+# Four eras: v10+ (root webassets_embed.go), v8-v9 (lib/web embed dir), v7 (lib/web embed zip), v2-v6 (zip-append)
 if [[ "${BUILD_VARIANT}" == "upstream" ]]; then
   if [[ -f "webassets_embed.go" || -f "lib/web/static_embed.go" ]]; then
     # go:embed era (v8+): enable tag if assets exist
     if [[ -d "webassets/teleport" ]] && [[ -n "$(ls -A webassets/teleport/ 2>/dev/null)" ]]; then
       WEBASSETS_TAG="webassets_embed"
       echo "=== upstream variant: webassets_embed tag enabled"
-      # v8-v9: static_embed.go embeds from lib/web/build/webassets/ — copy assets there
-      if [[ -f "lib/web/static_embed.go" && ! -d "lib/web/build/webassets" ]]; then
-        mkdir -p lib/web/build/webassets
-        cp -r webassets/teleport/* lib/web/build/webassets/ 2>/dev/null || true
-        echo "=== copied webassets → lib/web/build/webassets/ (v8-v9 embed path)"
+      # v7: static_embed.go embeds build/webassets.zip — create the zip
+      # v8-v9: static_embed.go embeds build/webassets/ directory — copy assets there
+      if [[ -f "lib/web/static_embed.go" ]]; then
+        if grep -q "webassets.zip" "lib/web/static_embed.go" 2>/dev/null; then
+          if [[ ! -f "lib/web/build/webassets.zip" ]]; then
+            mkdir -p lib/web/build
+            (cd webassets/teleport && zip -qr - .) > lib/web/build/webassets.zip
+            echo "=== zipped webassets → lib/web/build/webassets.zip (v7 embed path)"
+          fi
+        elif [[ ! -d "lib/web/build/webassets" ]]; then
+          mkdir -p lib/web/build/webassets
+          cp -r webassets/teleport/* lib/web/build/webassets/ 2>/dev/null || true
+          echo "=== copied webassets → lib/web/build/webassets/ (v8-v9 embed path)"
+        fi
       fi
     else
       echo "ERROR: upstream variant requires webassets but webassets/teleport/ is missing or empty"
