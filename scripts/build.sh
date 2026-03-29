@@ -78,6 +78,7 @@ if [[ "${GO_MINOR}" -ge 18 ]]; then
   GO_BUILD_FLAGS+=(-buildvcs=false)
 fi
 
+
 # --- Build tags (match upstream Makefile per-binary tag sets) ---
 # kustomize_disable_go_plugin_support: harmless on old versions (no matching files)
 BASE_TAGS="kustomize_disable_go_plugin_support"
@@ -317,9 +318,14 @@ if [[ "${BUILD_METHOD}" == "make-release" ]]; then
   fi
 else
   # Direct go build for each binary
-  echo "::group::go mod download"
-  go mod download 2>/dev/null || go get 2>/dev/null || true
-  echo "::endgroup::"
+  # Only download modules if there's no vendor directory — vendored projects
+  # already have deps, and go mod download can mutate go.sum creating
+  # inconsistencies with vendor/modules.txt on Go 1.17+
+  if [[ ! -d "vendor" ]]; then
+    echo "::group::go mod download"
+    go mod download 2>/dev/null || go get 2>/dev/null || true
+    echo "::endgroup::"
+  fi
 
   # fdpass-teleport is Rust — built separately, not part of the Go build loop
   # Build order: core binaries first, optional ones last
