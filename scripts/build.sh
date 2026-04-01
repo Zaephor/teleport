@@ -155,9 +155,9 @@ build_binary() {
       "-w ${VERSION_LDFLAGS}"
       "${VERSION_LDFLAGS}"
     )
-  else
-    # CGO_ENABLED=1 on Linux: try various external linker flag combos
-    # Note: --long-plt and --no-plt are LINKER flags, passed via -Wl, through gcc
+  elif [[ "${GO_ARCH}" == "arm" || "${GO_ARCH}" == "arm64" ]]; then
+    # CGO_ENABLED=1 on Linux ARM: try various external linker flag combos
+    # ARM32 can hit PLT overflow on large binaries — alternative linkers help
     FLAGS=(
       "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} ${PLATFORM_LDFLAGS}"
       "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} ${PLATFORM_LDFLAGS} -extldflags \"-fuse-ld=lld\""
@@ -168,6 +168,14 @@ build_binary() {
       "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} -extldflags \"-Wl,--no-plt\""
       "-s ${VERSION_LDFLAGS}"
       "-w ${VERSION_LDFLAGS}"
+      "${VERSION_LDFLAGS}"
+    )
+  else
+    # CGO_ENABLED=1 on Linux amd64/i386: fewer combos needed, saves disk space
+    FLAGS=(
+      "-s -w ${VERSION_LDFLAGS} ${DEBUGTRAMP} ${PLATFORM_LDFLAGS}"
+      "-s -w ${VERSION_LDFLAGS}"
+      "-s ${VERSION_LDFLAGS}"
       "${VERSION_LDFLAGS}"
     )
   fi
