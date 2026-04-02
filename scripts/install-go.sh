@@ -26,6 +26,15 @@ set +euo pipefail 2>/dev/null || true
 source "${GVM_DIR}/scripts/gvm" 2>/dev/null || true
 set -eo pipefail
 
+# Clean up non-target Go versions from cache restore to reclaim disk
+# This handles stale bootstrap versions from prior cache entries
+for installed in $(gvm list 2>/dev/null | grep -oE 'go[0-9]+\.[0-9]+[0-9.]*' || true); do
+  if [[ "${installed}" != "go${GO_VERSION}" ]]; then
+    echo "Removing cached ${installed} (not target go${GO_VERSION})"
+    gvm uninstall "${installed}" 2>/dev/null || true
+  fi
+done
+
 # Determine which bootstrap steps are needed
 # Go 1.4 can compile up to Go 1.19
 # Go 1.17.13 can compile up to Go 1.21
@@ -55,16 +64,18 @@ version_ge() {
   printf '%s\n%s\n' "$2" "$1" | sort -V -C
 }
 
-# Bootstrap chain — use binary downloads for bootstrap versions
-# Prebuilt binaries are available and avoid compilation issues across containers
+# Bootstrap chain — use binary downloads, purge each step after the next is ready
+# This keeps at most 2 Go versions on disk at any time (current + next)
 install_if_needed "1.4" true
 
 if version_ge "${GO_VERSION}" "1.18"; then
   install_if_needed "1.17.13" true
+  gvm uninstall "go1.4" 2>/dev/null || true
 fi
 
 if version_ge "${GO_VERSION}" "1.21"; then
   install_if_needed "1.20.14" true
+  gvm uninstall "go1.17.13" 2>/dev/null || true
 fi
 
 # Install target version
@@ -88,4 +99,19 @@ if ! gvm list 2>/dev/null | grep -q "go${GO_VERSION}"; then
 fi
 
 gvm use "go${GO_VERSION}" --default
+
+# Clean up non-target Go versions to reclaim disk (~700MB)
+# Only the target version is needed at runtime; bootstrap versions
+# and any other leftovers from prior cache entries are waste
+cleanup_non_target() {
+  local target="go${GO_VERSION}"
+  for installed in $(gvm list 2>/dev/null | grep -oE 'go[0-9]+\.[0-9]+[0-9.]*' || true); do
+    if [[ "${installed}" != "${target}" ]]; then
+      echo "Removing ${installed} (not target)"
+      gvm uninstall "${installed}" 2>/dev/null || true
+    fi
+  done
+}
+cleanup_non_target
+
 echo "Go ${GO_VERSION} installed and active"

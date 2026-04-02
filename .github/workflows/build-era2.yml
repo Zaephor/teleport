@@ -104,7 +104,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: gvm
-          key: gvm-${{ steps.resolve_go.outputs.go_version }}-${{ matrix.build_container }}
+          key: gvm-v2-${{ steps.resolve_go.outputs.go_version }}-${{ matrix.build_container }}
 
       - name: Cache Go modules
         if: runner.os == 'Linux'
@@ -393,7 +393,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: gvm
-          key: gvm-${{ steps.resolve_go.outputs.go_version }}-${{ matrix.build_container }}
+          key: gvm-v2-${{ steps.resolve_go.outputs.go_version }}-${{ matrix.build_container }}
 
       - name: Cache Go modules
         if: runner.os == 'Linux'
