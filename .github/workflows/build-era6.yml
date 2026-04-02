@@ -179,7 +179,6 @@ jobs:
         with:
           path: go/pkg/mod
           key: gomod-${{ inputs.tp_version }}
-          restore-keys: gomod-
 
       - name: Cache Go build
         if: runner.os == 'Linux'
@@ -187,7 +186,6 @@ jobs:
         with:
           path: .cache/go-build
           key: gobuild-${{ inputs.tp_version }}-${{ matrix.name }}
-          restore-keys: gobuild-${{ inputs.tp_version }}-
 
       - name: Cache Go toolchain
         if: runner.os != 'Linux'
@@ -488,7 +486,6 @@ jobs:
         with:
           path: go/pkg/mod
           key: gomod-${{ inputs.tp_version }}
-          restore-keys: gomod-
 
       - name: Cache Go build
         if: runner.os == 'Linux'
@@ -496,7 +493,6 @@ jobs:
         with:
           path: .cache/go-build
           key: gobuild-${{ inputs.tp_version }}-${{ matrix.name }}
-          restore-keys: gobuild-${{ inputs.tp_version }}-
 
       - name: Cache Go toolchain
         if: runner.os != 'Linux'
