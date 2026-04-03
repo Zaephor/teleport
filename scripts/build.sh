@@ -377,10 +377,11 @@ else
     BINARY_TAGS="${BASE_TAGS}"
     case "${x}" in
       tbot)
-        # Upstream v15+: CGO_ENABLED=0 for tbot on non-Windows.
-        # Older versions (v10-v14) need CGO_ENABLED=1 (imports BPF, PKCS11).
+        # Upstream v16.1+: CGO_ENABLED=0 for tbot on non-Windows.
+        # v10-v16.0 need CGO_ENABLED=1 (imports sqlite3, BPF, PKCS11).
         MAJOR=$(echo "${REF_VER#v}" | cut -d. -f1)
-        if [[ "${MAJOR}" -ge 15 && "${GO_OS}" != "windows" ]]; then
+        TBOT_MINOR=$(echo "${REF_VER#v}" | cut -d. -f2)
+        if [[ "${MAJOR}" -gt 16 || ( "${MAJOR}" -eq 16 && "${TBOT_MINOR}" -ge 1 ) ]] && [[ "${GO_OS}" != "windows" ]]; then
           BINARY_CGO=0
         fi
         ;;
