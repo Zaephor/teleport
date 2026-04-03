@@ -224,19 +224,58 @@ if [[ -f "pnpm-lock.yaml" ]]; then
   echo "::endgroup::"
 
 elif [[ -f "yarn.lock" ]]; then
-  # v10-v14: yarn monorepo
+  # v10-v16.1: yarn monorepo
   echo "::group::Install yarn"
   npm install -g yarn 2>/dev/null || true
   echo "yarn: $(yarn --version)"
   echo "::endgroup::"
 
-  echo "::group::yarn install"
-  yarn install --frozen-lockfile 2>/dev/null || yarn install 2>/dev/null || true
-  echo "::endgroup::"
+  # v15+ yarn projects need Rust/WASM for ironrdp (build-wasm target)
+  if grep -rq "build-wasm" web/packages/teleport/package.json 2>/dev/null; then
+    export CARGO_HOME="${CARGO_HOME:-/usr/local/cargo}"
+    export RUSTUP_HOME="${RUSTUP_HOME:-/usr/local/rustup}"
+    echo "::group::Install Rust toolchain (yarn+wasm)"
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+    export PATH="${CARGO_HOME}/bin:${PATH}"
+    rustup target add wasm32-unknown-unknown
+    cargo install wasm-pack 2>/dev/null || true
+    echo "Rust: $(rustc --version)"
+    echo "wasm-pack: $(wasm-pack --version 2>/dev/null || echo 'not found')"
+    echo "::endgroup::"
 
-  echo "::group::Build web UI (yarn)"
-  yarn build-ui-oss 2>/dev/null || true
-  echo "::endgroup::"
+    echo "::group::Install Go for Makefile"
+    if ! command -v go &>/dev/null; then
+      GO_WEBASSETS_VER="1.22.0"
+      ARCH_GO=""
+      case "$(uname -m)" in
+        x86_64)  ARCH_GO="amd64" ;;
+        aarch64) ARCH_GO="arm64" ;;
+        *)       ARCH_GO="amd64" ;;
+      esac
+      curl -fsSL "https://go.dev/dl/go${GO_WEBASSETS_VER}.linux-${ARCH_GO}.tar.gz" -o /tmp/go.tar.gz
+      tar -C /usr/local -xzf /tmp/go.tar.gz
+      export PATH="/usr/local/go/bin:${PATH}"
+      rm -f /tmp/go.tar.gz
+    fi
+    echo "Go: $(go version)"
+    echo "::endgroup::"
+
+    echo "::group::Build web UI (make ensure-webassets)"
+    CI=true make ensure-webassets 2>&1 || {
+      echo "WARNING: make ensure-webassets failed, falling back to yarn build-ui-oss"
+      yarn install --frozen-lockfile 2>/dev/null || yarn install 2>/dev/null || true
+      yarn build-ui-oss 2>/dev/null || true
+    }
+    echo "::endgroup::"
+  else
+    echo "::group::yarn install"
+    yarn install --frozen-lockfile 2>/dev/null || yarn install 2>/dev/null || true
+    echo "::endgroup::"
+
+    echo "::group::Build web UI (yarn)"
+    yarn build-ui-oss 2>/dev/null || true
+    echo "::endgroup::"
+  fi
 
 else
   echo "WARNING: No lockfile found (pnpm-lock.yaml or yarn.lock) — trying make"
