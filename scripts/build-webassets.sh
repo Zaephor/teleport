@@ -114,6 +114,16 @@ fi
 
 echo "=== Building web assets from source"
 
+# --- Detect pinned Rust version from source ---
+RUST_TOOLCHAIN="stable"
+if [[ -f "${SOURCE_DIR}/build.assets/versions.mk" ]]; then
+  PINNED_RUST=$(grep "^RUST_VERSION" "${SOURCE_DIR}/build.assets/versions.mk" | head -1 | sed 's/.*?= *//;s/ .*//')
+  if [[ -n "${PINNED_RUST}" ]]; then
+    RUST_TOOLCHAIN="${PINNED_RUST}"
+    echo "=== Detected pinned Rust version: ${RUST_TOOLCHAIN}"
+  fi
+fi
+
 # --- Install system dependencies ---
 echo "::group::Install system dependencies"
 if command -v apt-get &>/dev/null; then
@@ -187,7 +197,7 @@ if [[ -f "pnpm-lock.yaml" ]]; then
   export CARGO_HOME="${CARGO_HOME:-/usr/local/cargo}"
   export RUSTUP_HOME="${RUSTUP_HOME:-/usr/local/rustup}"
   echo "::group::Install Rust toolchain"
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain "${RUST_TOOLCHAIN}"
   export PATH="${CARGO_HOME}/bin:${PATH}"
   rustup target add wasm32-unknown-unknown
   cargo install wasm-pack 2>/dev/null || true
@@ -235,7 +245,7 @@ elif [[ -f "yarn.lock" ]]; then
     export CARGO_HOME="${CARGO_HOME:-/usr/local/cargo}"
     export RUSTUP_HOME="${RUSTUP_HOME:-/usr/local/rustup}"
     echo "::group::Install Rust toolchain (yarn+wasm)"
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain "${RUST_TOOLCHAIN}"
     export PATH="${CARGO_HOME}/bin:${PATH}"
     rustup target add wasm32-unknown-unknown
     cargo install wasm-pack 2>/dev/null || true
