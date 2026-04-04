@@ -262,9 +262,19 @@ elif [[ -f "yarn.lock" ]]; then
     echo "::endgroup::"
 
     echo "::group::Build WASM (wasm-pack)"
-    IRONRDP_DIR="web/packages/teleport/src/ironrdp"
-    if [[ -d "${IRONRDP_DIR}" ]]; then
+    # ironrdp location moved across versions
+    IRONRDP_DIR=""
+    for candidate in "web/packages/teleport/src/ironrdp" "web/packages/shared/libs/ironrdp"; do
+      if [[ -d "${candidate}" && -f "${candidate}/Cargo.toml" ]]; then
+        IRONRDP_DIR="${candidate}"
+        break
+      fi
+    done
+    if [[ -n "${IRONRDP_DIR}" ]]; then
+      echo "=== Building ironrdp WASM from ${IRONRDP_DIR}"
       wasm-pack build "${IRONRDP_DIR}" --target web
+    else
+      echo "WARNING: ironrdp directory not found — skipping WASM build"
     fi
     echo "::endgroup::"
 
