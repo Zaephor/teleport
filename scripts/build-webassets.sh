@@ -200,37 +200,39 @@ if [[ -f "pnpm-lock.yaml" ]]; then
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain "${RUST_TOOLCHAIN}"
   export PATH="${CARGO_HOME}/bin:${PATH}"
   rustup target add wasm32-unknown-unknown
-  cargo install wasm-pack 2>/dev/null || true
+  # Prebuilt wasm-pack (cargo install wasm-pack fails with old Rust + new crates.io)
+  curl -fsSL https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
   echo "Rust: $(rustc --version)"
-  echo "wasm-pack: $(wasm-pack --version 2>/dev/null || echo 'not found')"
+  echo "wasm-pack: $(wasm-pack --version)"
   echo "::endgroup::"
 
-  # Install Go (Makefile uses go for version checks and wasm-related targets)
-  echo "::group::Install Go for Makefile"
-  if ! command -v go &>/dev/null; then
-    GO_WEBASSETS_VER="1.22.0"
-    ARCH_GO=""
-    case "$(uname -m)" in
-      x86_64)  ARCH_GO="amd64" ;;
-      aarch64) ARCH_GO="arm64" ;;
-      *)       ARCH_GO="amd64" ;;
-    esac
-    curl -fsSL "https://go.dev/dl/go${GO_WEBASSETS_VER}.linux-${ARCH_GO}.tar.gz" -o /tmp/go.tar.gz
-    tar -C /usr/local -xzf /tmp/go.tar.gz
-    export PATH="/usr/local/go/bin:${PATH}"
-    rm -f /tmp/go.tar.gz
+  echo "::group::pnpm install"
+  pnpm install --frozen-lockfile 2>/dev/null || pnpm install 2>/dev/null || true
+  echo "::endgroup::"
+
+  # Build WASM directly, then vite — same approach as yarn+wasm path
+  # "make ensure-webassets" and "pnpm build-ui-oss" both run "cargo install --locked
+  # wasm-bindgen-cli" which fails due to crates.io transitive dep edition drift
+  echo "::group::Build WASM (wasm-pack)"
+  IRONRDP_DIR=""
+  for candidate in "web/packages/teleport/src/ironrdp" "web/packages/shared/libs/ironrdp"; do
+    if [[ -d "${candidate}" && -f "${candidate}/Cargo.toml" ]]; then
+      IRONRDP_DIR="${candidate}"
+      break
+    fi
+  done
+  if [[ -n "${IRONRDP_DIR}" ]]; then
+    echo "=== Building ironrdp WASM from ${IRONRDP_DIR}"
+    wasm-pack build "${IRONRDP_DIR}" --target web
+  else
+    echo "WARNING: ironrdp directory not found — skipping WASM build"
   fi
-  echo "Go: $(go version)"
   echo "::endgroup::"
 
-  # Use upstream Makefile which handles wasm-bindgen, wasm-opt, pnpm deps, and build
-  # CI=true is required so Makefile auto-installs wasm-bindgen-cli instead of just warning
-  echo "::group::Build web UI (make ensure-webassets)"
-  CI=true make ensure-webassets 2>&1 || {
-    echo "WARNING: make ensure-webassets failed, falling back to pnpm build-ui-oss"
-    pnpm install --frozen-lockfile 2>/dev/null || pnpm install 2>/dev/null || true
-    pnpm build-ui-oss 2>/dev/null || true
-  }
+  echo "::group::Build web UI (vite)"
+  cd web/packages/teleport
+  npx vite build
+  cd "${SOURCE_DIR}"
   echo "::endgroup::"
 
 elif [[ -f "yarn.lock" ]]; then
