@@ -115,12 +115,23 @@ fi
 echo "=== Building web assets from source"
 
 # --- Detect pinned Rust version from source ---
+# v18.7.5+ moved the pin from build.assets/versions.mk to the canonical
+# rust-toolchain.toml at repo root. Check both so we stay compatible across
+# upstream versions. Use `grep ... || true` so a missing line does not trip
+# pipefail and silently exit the script.
 RUST_TOOLCHAIN="stable"
-if [[ -f "${SOURCE_DIR}/build.assets/versions.mk" ]]; then
-  PINNED_RUST=$(grep "^RUST_VERSION" "${SOURCE_DIR}/build.assets/versions.mk" | head -1 | sed 's/.*?= *//;s/ .*//')
+if [[ -f "${SOURCE_DIR}/rust-toolchain.toml" ]]; then
+  PINNED_RUST=$(grep -E '^\s*channel\s*=' "${SOURCE_DIR}/rust-toolchain.toml" | head -1 | sed -E 's/.*=\s*"?([^"[:space:]]+)"?.*/\1/' || true)
   if [[ -n "${PINNED_RUST}" ]]; then
     RUST_TOOLCHAIN="${PINNED_RUST}"
-    echo "=== Detected pinned Rust version: ${RUST_TOOLCHAIN}"
+    echo "=== Detected pinned Rust version from rust-toolchain.toml: ${RUST_TOOLCHAIN}"
+  fi
+fi
+if [[ "${RUST_TOOLCHAIN}" == "stable" && -f "${SOURCE_DIR}/build.assets/versions.mk" ]]; then
+  PINNED_RUST=$(grep "^RUST_VERSION" "${SOURCE_DIR}/build.assets/versions.mk" | head -1 | sed 's/.*?= *//;s/ .*//' || true)
+  if [[ -n "${PINNED_RUST}" ]]; then
+    RUST_TOOLCHAIN="${PINNED_RUST}"
+    echo "=== Detected pinned Rust version from versions.mk: ${RUST_TOOLCHAIN}"
   fi
 fi
 
