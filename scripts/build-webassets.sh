@@ -144,23 +144,67 @@ fi
 echo "::endgroup::"
 
 # --- Install Node.js ---
+# Determine the required Node version straight from upstream, in order of
+# authority, so we never maintain a hardcoded version table:
+#   1. .nvmrc                        — a pinned full version, if upstream ships one
+#   2. package.json "engines.node"   — the declared supported range (e.g. "^24")
+#   3. fallback default              — last resort only
+# A pinned pnpm in "packageManager" sets a hard floor: pnpm 11+ loads the
+# node:sqlite builtin and requires Node >= 22. If upstream's declared Node is
+# somehow below that floor, bump it — otherwise corepack activation crashes:
+#   Error [ERR_UNKNOWN_BUILTIN_MODULE]: No such built-in module: node:sqlite
+# which aborts the install and makes vite die on missing devDeps
+# (rollup-plugin-visualizer, jsdom).
+DEFAULT_NODE_MAJOR=20
 NODE_VERSION=""
+
 if [[ -f "${SOURCE_DIR}/.nvmrc" ]]; then
   NODE_VERSION=$(cat "${SOURCE_DIR}/.nvmrc" | tr -d 'v \n')
-  echo "Node version from .nvmrc: ${NODE_VERSION}"
+  echo "=== Node version from .nvmrc: ${NODE_VERSION}"
 fi
 
-if ! command -v node &>/dev/null || [[ -n "${NODE_VERSION}" ]]; then
-  echo "::group::Install Node.js"
-  if [[ -z "${NODE_VERSION}" ]]; then
-    NODE_VERSION="20"
+if [[ -z "${NODE_VERSION}" && -f "${SOURCE_DIR}/package.json" ]]; then
+  # Pull the first integer out of the engines.node range ("^24" -> 24,
+  # ">=22.0.0" -> 22). The -A window scopes the match to the engines block so
+  # we don't accidentally read a version from elsewhere in package.json.
+  ENGINE_NODE_MAJOR=$(grep -A3 '"engines"' "${SOURCE_DIR}/package.json" 2>/dev/null \
+    | grep -oE '"node"[[:space:]]*:[[:space:]]*"[^"]+"' \
+    | grep -oE '[0-9]+' | head -1 || true)
+  if [[ -n "${ENGINE_NODE_MAJOR}" ]]; then
+    NODE_VERSION="${ENGINE_NODE_MAJOR}"
+    echo "=== Node major from package.json engines.node: ${NODE_VERSION}"
   fi
+fi
 
+if [[ -z "${NODE_VERSION}" ]]; then
+  NODE_VERSION="${DEFAULT_NODE_MAJOR}"
+  echo "=== No Node version declared upstream; defaulting to ${NODE_VERSION}"
+fi
+
+# pnpm floor: pnpm 11+ needs Node >= 22.
+PNPM_PIN_MAJOR=$(grep -oE '"packageManager"[[:space:]]*:[[:space:]]*"pnpm@[0-9]+' "${SOURCE_DIR}/package.json" 2>/dev/null | grep -oE '[0-9]+$' || true)
+if [[ -n "${PNPM_PIN_MAJOR}" && "${PNPM_PIN_MAJOR}" -ge 11 && "${NODE_VERSION%%.*}" -lt 22 ]]; then
+  echo "=== Pinned pnpm@${PNPM_PIN_MAJOR} requires Node >= 22; bumping ${NODE_VERSION} -> 22"
+  NODE_VERSION="22"
+fi
+
+# Decide whether the (possibly preinstalled) Node is new enough. A runner with
+# preinstalled Node 20 must be overridden when a newer major is required.
+NODE_NEEDS_INSTALL=1
+if command -v node &>/dev/null; then
+  CUR_NODE_MAJOR=$(node --version | sed -E 's/^v?([0-9]+).*/\1/')
+  if [[ -n "${CUR_NODE_MAJOR}" && "${CUR_NODE_MAJOR}" -ge "${NODE_VERSION%%.*}" ]]; then
+    NODE_NEEDS_INSTALL=0
+  else
+    echo "=== Preinstalled Node v${CUR_NODE_MAJOR} < required v${NODE_VERSION%%.*}; installing newer"
+  fi
+fi
+
+if [[ "${NODE_NEEDS_INSTALL}" == "1" ]]; then
+  echo "::group::Install Node.js"
   NODE_MAJOR="${NODE_VERSION%%.*}"
 
-  if command -v node &>/dev/null; then
-    : # already available (macOS runners have Node.js pre-installed)
-  elif command -v brew &>/dev/null; then
+  if command -v brew &>/dev/null; then
     brew install node
   elif command -v apt-get &>/dev/null; then
     ARCH_NODE=""
@@ -174,7 +218,10 @@ if ! command -v node &>/dev/null || [[ -n "${NODE_VERSION}" ]]; then
     if [[ ! "${NODE_DL_VER}" =~ \. ]]; then
       NODE_DL_VER=$(curl -fsSL "https://nodejs.org/dist/latest-v${NODE_MAJOR}.x/" 2>/dev/null | grep -oP 'node-v\K[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
       if [[ -z "${NODE_DL_VER}" ]]; then
-        NODE_DL_VER="20.11.0"
+        # Last-resort fallback if the dist listing is unreachable: the X.0.0
+        # release of the requested major. Stays at the right major (so a
+        # pnpm@11 pin never regresses to node:sqlite) without a hardcoded list.
+        NODE_DL_VER="${NODE_MAJOR}.0.0"
       fi
     fi
     curl -fsSL "https://nodejs.org/dist/v${NODE_DL_VER}/node-v${NODE_DL_VER}-linux-${ARCH_NODE}.tar.xz" -o /tmp/node.tar.xz
@@ -199,7 +246,17 @@ if [[ -f "pnpm-lock.yaml" ]]; then
   else
     npm install -g pnpm 2>/dev/null || true
   fi
-  echo "pnpm: $(pnpm --version)"
+  # Verify pnpm actually runs. A version mismatch (e.g. a pinned pnpm@11 on
+  # Node < 22) makes corepack activate a pnpm that crashes on every invocation
+  # with node:sqlite. Fail here with a clear message instead of limping into a
+  # silently-skipped install and a confusing vite failure 2 minutes later.
+  if ! PNPM_VER=$(pnpm --version 2>&1); then
+    echo "ERROR: pnpm is not runnable after setup."
+    echo "  Node: $(node --version)   pinned pnpm: ${PNPM_PIN_MAJOR:-none}"
+    echo "  pnpm output: ${PNPM_VER}"
+    exit 1
+  fi
+  echo "pnpm: ${PNPM_VER}"
   echo "::endgroup::"
 
   # Install Rust toolchain for wasm build (build-ironrdp-wasm)
@@ -218,7 +275,14 @@ if [[ -f "pnpm-lock.yaml" ]]; then
   echo "::endgroup::"
 
   echo "::group::pnpm install"
-  pnpm install --frozen-lockfile 2>/dev/null || pnpm install 2>/dev/null || true
+  # Fail loud: a broken install must abort the build, not get swallowed and
+  # surface later as a missing-devDep vite error. Try frozen-lockfile first
+  # (reproducible); on lockfile drift, retry unfrozen; if that also fails, the
+  # unguarded failure trips `set -e` and the script exits non-zero.
+  if ! pnpm install --frozen-lockfile; then
+    echo "WARNING: 'pnpm install --frozen-lockfile' failed (lockfile drift?); retrying without --frozen-lockfile"
+    pnpm install
+  fi
   echo "::endgroup::"
 
   # Build WASM directly, then vite — same approach as yarn+wasm path
