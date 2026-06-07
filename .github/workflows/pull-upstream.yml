@@ -33,20 +33,33 @@ jobs:
       - name: Sync upstream branches
         run: |
           git remote add upstream ${{ env.REPO_UPSTREAM }}
-          for upstream_branch in $(echo "${{ steps.upstream.outputs.branches }}" | tr ',' '\n'); do
-            own_branch=$(echo "source-v${upstream_branch/v/}")
-            echo "::group::Updating branch ${own_branch}"
 
+          # Delta: compare tip SHAs via ls-remote (no fetch) so unchanged lines cost nothing.
+          # Backports (last 2-3 majors get CVE fixes) move the line tip; only those resync.
+          declare -A fork_sha up_sha
+          while read -r sha ref; do fork_sha["${ref#refs/heads/}"]=$sha; done \
+            < <(git ls-remote --heads origin)
+          while read -r sha ref; do up_sha["${ref##*/}"]=$sha; done \
+            < <(git ls-remote --heads upstream 'refs/heads/branch/*')
+
+          for upstream_branch in $(echo "${{ steps.upstream.outputs.branches }}" | tr ',' '\n'); do
+            own_branch="source-v${upstream_branch#v}"
+
+            if [ -n "${up_sha[$upstream_branch]}" ] && [ "${up_sha[$upstream_branch]}" = "${fork_sha[$own_branch]}" ]; then
+              echo "::notice::${own_branch} up to date (${up_sha[$upstream_branch]:0:12}); skipping"
+              continue
+            fi
+
+            echo "::group::Updating ${own_branch} (${fork_sha[$own_branch]:0:12} -> ${up_sha[$upstream_branch]:0:12})"
             git fetch upstream refs/heads/branch/${upstream_branch}:${own_branch}
             git checkout ${own_branch}
 
-            git tag -l | grep -v "^v${upstream_branch/v/}" | xargs git tag -d 2>/dev/null || true
+            git tag -l | grep -v "^v${upstream_branch#v}" | xargs git tag -d 2>/dev/null || true
             git tag -l | awk '!/^v/ || /-/ || /\^/{print}' | xargs git tag -d 2>/dev/null || true
 
             git push origin ${own_branch}
             git push origin ${own_branch} --tags
             echo "::endgroup::"
-            sleep 1s
           done
           git checkout ci
 
