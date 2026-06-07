@@ -26,7 +26,9 @@ jobs:
       - name: Identify upstream branches
         id: upstream
         run: |
-          echo "branches=$(git ls-remote --heads ${{ env.REPO_UPSTREAM }} | awk -F '/' '/refs\/heads\/branch/ && !/-/{$0=$NF;print}' | sort -V | tr '\n' ',')" >> $GITHUB_OUTPUT
+          # Major-only release lines: accept refs/heads/branch/vN, reject minor (v6.0),
+          # patch (12.4.23), suffixed (3.0-g) and non-release (nightly-test) upstream branches.
+          echo "branches=$(git ls-remote --heads ${{ env.REPO_UPSTREAM }} | awk -F '/' '/refs\/heads\/branch/ && $NF ~ /^v[[:digit:]]+$/{print $NF}' | sort -V | tr '\n' ',')" >> $GITHUB_OUTPUT
 
       - name: Sync upstream branches
         run: |
