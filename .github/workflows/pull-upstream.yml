@@ -50,8 +50,11 @@ jobs:
 
       - name: Identify LATEST and new versions
         run: |
-          git ls-remote --tags ${{ env.REPO_UPSTREAM }} | ${{ env.AWK_FILTER_TAG }} | sort -Vru | head -n 1 > LATEST
-          comm --nocheck-order -23 <(git ls-remote --tags https://github.com/${{ github.repository }} | ${{ env.AWK_FILTER_TAG }} | sort -Vu) <(sort -Vu VERSIONS | grep -v '^#') | head -n 1 >> VERSIONS
+          git ls-remote --tags ${{ env.REPO_UPSTREAM }} | ${{ env.AWK_FILTER_TAG }} | sort -Vr | sed -n '1p' > LATEST
+          # Order-agnostic set difference: repo tags not already in VERSIONS, oldest unbuilt first.
+          # (comm requires lexically-sorted input and desyncs on version-sorted lists at major-version rollovers.)
+          git ls-remote --tags https://github.com/${{ github.repository }} | ${{ env.AWK_FILTER_TAG }} | sort -Vu \
+            | grep -Fxv -f <(grep -v '^#' VERSIONS) | sort -Vu | head -n 1 >> VERSIONS
           if ! git diff-index --quiet HEAD --; then
             git config user.name github-actions
             git config user.email github-actions@github.com
