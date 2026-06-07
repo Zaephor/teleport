@@ -26,16 +26,19 @@ jobs:
       - name: Identify upstream branches
         id: upstream
         run: |
-          # Major-only release lines: accept refs/heads/branch/vN, reject minor (v6.0),
-          # patch (12.4.23), suffixed (3.0-g) and non-release (nightly-test) upstream branches.
-          echo "branches=$(git ls-remote --heads ${{ env.REPO_UPSTREAM }} | awk -F '/' '/refs\/heads\/branch/ && $NF ~ /^v[[:digit:]]+$/{print $NF}' | sort -V | tr '\n' ',')" >> $GITHUB_OUTPUT
+          # Release lines for the browsing mirror: major (vN) AND old minor (N.M / vN.M, which
+          # never got a major branch upstream and are divergent, so cannot be consolidated).
+          # Reject patch-level (12.4.23), suffixed (3.0-g) and non-release (nightly-test).
+          # Tags are NOT derived from these branches -- see "Mirror release tags".
+          echo "branches=$(git ls-remote --heads ${{ env.REPO_UPSTREAM }} | awk -F '/' '/refs\/heads\/branch/ && $NF ~ /^v?[[:digit:]]+(\.[[:digit:]]+)?$/{print $NF}' | sort -V | tr '\n' ',')" >> $GITHUB_OUTPUT
 
       - name: Sync upstream branches
         run: |
           git remote add upstream ${{ env.REPO_UPSTREAM }}
 
-          # Delta: compare tip SHAs via ls-remote (no fetch) so unchanged lines cost nothing.
-          # Backports (last 2-3 majors get CVE fixes) move the line tip; only those resync.
+          # Browsing/AGPL mirror of each release line. Delta: compare tip SHAs via ls-remote
+          # (no fetch) so unchanged lines cost nothing; only lines that moved (CVE backports
+          # on the last 2-3 majors) resync. Tags are mirrored separately (next step).
           declare -A fork_sha up_sha
           while read -r sha ref; do fork_sha["${ref#refs/heads/}"]=$sha; done \
             < <(git ls-remote --heads origin)
@@ -51,17 +54,22 @@ jobs:
             fi
 
             echo "::group::Updating ${own_branch} (${fork_sha[$own_branch]:0:12} -> ${up_sha[$upstream_branch]:0:12})"
-            git fetch upstream refs/heads/branch/${upstream_branch}:${own_branch}
-            git checkout ${own_branch}
-
-            git tag -l | grep -v "^v${upstream_branch#v}" | xargs git tag -d 2>/dev/null || true
-            git tag -l | awk '!/^v/ || /-/ || /\^/{print}' | xargs git tag -d 2>/dev/null || true
-
+            git fetch --no-tags upstream refs/heads/branch/${upstream_branch}:${own_branch}
             git push origin ${own_branch}
-            git push origin ${own_branch} --tags
             echo "::endgroup::"
           done
-          git checkout ci
+
+      - name: Mirror release tags
+        run: |
+          git remote add upstream ${{ env.REPO_UPSTREAM }} 2>/dev/null || true
+          # Tags are the build inputs and MUST be mirrored independent of branches: teleport
+          # tags many releases on un-merged "release spurs" not reachable from branch/vN, so a
+          # branch fetch + push --tags silently misses them (e.g. v18.8.3). Fetch tags directly.
+          git fetch --no-tags upstream 'refs/tags/v*:refs/tags/v*'
+          # Keep only release tags with major >= 2 (the build universe in VERSIONS);
+          # drop pre-releases (-dev/-rc), peeled refs (^{}) and v0/v1.
+          git tag -l | awk '!/^v([2-9]|[1-9][0-9]+)\.[0-9]+\.[0-9]+$/{print}' | xargs -r git tag -d
+          git push origin --tags
 
       - name: Identify LATEST and new versions
         run: |
