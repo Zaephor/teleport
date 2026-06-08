@@ -1,62 +1,15 @@
-v2,1.8
-v2.6,1.9
-v2.7,1.9
-v3,1.9
-v3.1.16,1.13
-v3.1.17,1.13
-v3.1.18,1.13
-v3.2,1.11
-v4.0,1.9
-v4.1,1.12
-v4.2,1.13
-v4.3,1.13
-v4.4,1.14
-v5.0,1.15
-v5.2,1.15
-v6.0,1.16
-v6.1,1.16
-v6.2,1.16
-v7.0,1.16
-v7.1,1.16
-v7.2,1.17
-v7.3,1.17
-v8.0,1.17
-v8.1,1.17
-v8.2,1.17
-v8.3,1.17
-v9.0,1.17
-v9.1,1.17
-v9.2,1.17
-v9.3,1.17
-v10.0,1.18
-v10.1,1.18
-v10.2,1.19
-v10.3,1.19
-v11.0,1.20
-v11.1,1.20
-v11.2,1.20
-v11.3,1.20
-v12.0,1.21
-v12.1,1.21
-v12.2,1.21
-v12.3,1.21
-v12.4,1.21
-v13.0,1.21
-v13.1,1.21
-v13.2,1.21
-v13.3,1.21
-v13.4,1.21
-v14.0,1.21
-v14.1,1.22
-v14.2,1.22
-v14.3,1.22
-v14.4,1.22
-v15.0,1.22
-v15.1,1.22
-v15.2,1.22
-v15.3,1.22
-v15.4,1.22
-v15.5,1.23
-v16,1.22
-v17,1.22
-v18,1.23
+# golang.override — explicit Go-toolchain exceptions for resolve-go.sh
+#
+# Normally EMPTY. The Go version is read from each teleport tag's own source
+# (build.assets/versions.mk|Makefile GOLANG_VERSION/RUNTIME, or the v2 Dockerfile),
+# so it matches what upstream shipped. Add a line here ONLY when that extracted
+# version cannot be built (e.g. the exact old Go is no longer reproducible) and you
+# need to pin a deliberate substitute. Values are also subject to the GVM compile
+# ceiling in resolve-go.sh (use <= 1.23; toolchain auto-download handles newer).
+#
+# Format (most-specific wins): vMAJOR.MINOR.PATCH,go_version
+#                              vMAJOR.MINOR,go_version
+#                              vMAJOR,go_version
+# Example: v3.1.18,1.13
+#
+# (no overrides currently)
