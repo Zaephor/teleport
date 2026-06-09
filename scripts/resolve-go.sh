@@ -113,11 +113,14 @@ if [[ "${GO_OS:-}" == "darwin" && "${GO_MINOR}" -lt 16 ]]; then
   GO_VERSION="1.16"; GO_MINOR="16"
 fi
 
-# darwin + Go 1.17-1.20: Xcode 15 linker is incompatible (Go issue #61229).
-# macos-14 ships Xcode 15 which silently crashes Go 1.17-1.20 CGO linking; 1.16 works,
-# 1.21+ has the fix. Only bump the broken range.
-if [[ "${GO_OS:-}" == "darwin" && "${GO_MINOR}" -ge 17 && "${GO_MINOR}" -lt 21 ]]; then
-  echo "Platform minimum: darwin Go ${GO_VERSION} incompatible with Xcode 15 linker, bumping to 1.21" >&2
+# darwin + Go <1.21: the macos runner linker is incompatible (Go issue #61229).
+# Originally only Go 1.17-1.20 broke on Xcode 15 (1.16 still linked via -ld_classic).
+# Xcode 16.3 then REMOVED the classic linker, so the -ld_classic workaround in build.sh
+# is now inert and Go 1.16 CGO linking silently crashes too (compiles all deps, then the
+# final link exits 1 with no output). Go 1.21+ has the real fix and needs no classic ld.
+# So bump the entire broken range — anything below 1.21 — up to 1.21.
+if [[ "${GO_OS:-}" == "darwin" && "${GO_MINOR}" -lt 21 ]]; then
+  echo "Platform minimum: darwin Go ${GO_VERSION} incompatible with modern Xcode linker, bumping to 1.21" >&2
   GO_VERSION="1.21"; GO_MINOR="21"
 fi
 
